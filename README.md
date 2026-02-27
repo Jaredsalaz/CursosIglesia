@@ -67,7 +67,7 @@ CursosIglesia/
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tu-usuario/CursosIglesia.git
+git clone https://github.com/Jaredsalaz/CursosIglesia.git
 cd CursosIglesia
 
 # Restaurar dependencias
