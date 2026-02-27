@@ -1,0 +1,140 @@
+@page "/mis-cursos"
+@rendermode InteractiveServer
+@inject ProfileViewModel ViewModel
+
+<PageTitle>Mis Cursos - Cursos Católicos</PageTitle>
+
+<!-- Page Header -->
+<section class="page-header">
+    <div class="container">
+        <h1><i class="bi bi-person-circle me-2"></i>Mis Cursos</h1>
+        <p>Gestiona tus cursos inscritos y continúa tu formación en la fe</p>
+    </div>
+</section>
+
+@if (ViewModel.IsLoading)
+{
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="mt-3 text-muted">Cargando tus cursos...</p>
+    </div>
+}
+else
+{
+    <section class="section">
+        <div class="container">
+            @if (ViewModel.EnrolledCourses.Any())
+            {
+                <!-- Stats Summary -->
+                <div class="profile-stats-bar">
+                    <div class="profile-stat">
+                        <div class="profile-stat-number">@ViewModel.TotalEnrolled</div>
+                        <div class="profile-stat-label">Cursos Inscritos</div>
+                    </div>
+                    <div class="profile-stat">
+                        <div class="profile-stat-number">@ViewModel.CompletedCourses</div>
+                        <div class="profile-stat-label">Completados</div>
+                    </div>
+                    <div class="profile-stat">
+                        <div class="profile-stat-number">@ViewModel.AverageProgress%</div>
+                        <div class="profile-stat-label">Progreso Promedio</div>
+                    </div>
+                </div>
+
+                <!-- Enrolled Courses Grid -->
+                <div class="row g-4 mt-2">
+                    @foreach (var item in ViewModel.EnrolledCourses)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="enrolled-course-card">
+                                <div class="enrolled-card-image">
+                                    <img src="@item.Course.ImageUrl" alt="@item.Course.Title" />
+                                    @if (item.Enrollment.IsCompleted)
+                                    {
+                                        <div class="enrolled-badge-completed">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Completado
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="enrolled-badge-progress">
+                                            @item.Enrollment.Progress% completado
+                                        </div>
+                                    }
+                                </div>
+                                <div class="enrolled-card-body">
+                                    <span class="enrolled-category">@item.Course.CategoryName</span>
+                                    <h5 class="enrolled-card-title">@item.Course.Title</h5>
+                                    <div class="enrolled-instructor">
+                                        <img src="@item.Course.InstructorImageUrl" alt="@item.Course.Instructor" />
+                                        <span>@item.Course.Instructor</span>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div class="progress-section">
+                                        <div class="progress-info">
+                                            <span>Progreso</span>
+                                            <span class="progress-percentage">@item.Enrollment.Progress%</span>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill @(item.Enrollment.IsCompleted ? "completed" : "")"
+                                                 style="width: @item.Enrollment.Progress%"></div>
+                                        </div>
+                                        <div class="progress-detail">
+                                            @item.Enrollment.CompletedLessonIds.Count / @item.Course.LessonsCount lecciones
+                                        </div>
+                                    </div>
+
+                                    <!-- Actions -->
+                                    <div class="enrolled-actions">
+                                        @if (item.Enrollment.IsCompleted)
+                                        {
+                                            <a href="/aprender/@item.Course.Id" class="btn-catholic w-100 justify-content-center">
+                                                <i class="bi bi-arrow-repeat"></i> Repasar Curso
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a href="/aprender/@item.Course.Id" class="btn-catholic w-100 justify-content-center">
+                                                <i class="bi bi-play-fill"></i> Continuar Curso
+                                            </a>
+                                        }
+                                        <button class="btn-unenroll" @onclick="() => Unenroll(item.Course.Id)">
+                                            <i class="bi bi-x-circle"></i> Desinscribirse
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- Empty State -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-journal-bookmark"></i>
+                    </div>
+                    <h3>Aún no estás inscrito en ningún curso</h3>
+                    <p>Explora nuestro catálogo y encuentra el curso perfecto para ti</p>
+                    <a href="/cursos" class="btn-catholic">
+                        <i class="bi bi-search"></i> Explorar Cursos
+                    </a>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.InitializeAsync();
+    }
+
+    private async Task Unenroll(int courseId)
+    {
+        await ViewModel.UnenrollAsync(courseId);
+    }
+}

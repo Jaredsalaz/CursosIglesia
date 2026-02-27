@@ -1,0 +1,48 @@
+@* Shared Course Card Component *@
+
+<div class="course-card">
+    <a href="/curso/@Course.Id">
+        <div class="card-img-wrapper">
+            <img src="@Course.ImageUrl" alt="@Course.Title" loading="lazy" />
+            <div class="card-badge">
+                @if (Course.IsFree)
+                {
+                    <span class="badge-free">Gratis</span>
+                }
+                @if (Course.IsFeatured)
+                {
+                    <span class="badge-featured"><i class="bi bi-star-fill me-1"></i>Destacado</span>
+                }
+            </div>
+            <span class="badge-category">@Course.CategoryName</span>
+        </div>
+    </a>
+    <div class="card-body">
+        <a href="/curso/@Course.Id">
+            <h5 class="card-title">@Course.Title</h5>
+        </a>
+        <p class="card-description">@Course.ShortDescription</p>
+        <div class="card-meta">
+            <span><i class="bi bi-clock"></i> @Course.DurationHours h</span>
+            <span><i class="bi bi-journal-text"></i> @Course.LessonsCount lecciones</span>
+            <span class="card-rating">
+                <span class="stars"><i class="bi bi-star-fill"></i></span>
+                @Course.Rating.ToString("0.0")
+            </span>
+        </div>
+    </div>
+    <div class="card-footer-custom">
+        <div class="card-instructor">
+            <img src="@Course.InstructorImageUrl" alt="@Course.Instructor" />
+            <span>@Course.Instructor</span>
+        </div>
+        <span class="card-price @(Course.IsFree ? "free" : "")">
+            @(Course.IsFree ? "Gratis" : $"${Course.Price:0.00}")
+        </span>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Course Course { get; set; } = default!;
+}
