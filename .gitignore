@@ -1,10 +1,14 @@
-## .NET / Blazor Server
+## .NET / ASP.NET Core / Blazor
 bin/
 obj/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
+*.swp
+*.tmp
+*.temp
 
 ## Build results
 [Dd]ebug/
@@ -30,6 +34,7 @@ bld/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+packages.lock.json
 
 ## Visual Studio
 .vs/
@@ -90,6 +95,28 @@ $RECYCLE.BIN/
 appsettings.*.json
 !appsettings.json
 !appsettings.Development.json
+
+## Secrets / local env
+.env
+.env.*
+secrets.json
+
+## Logs and outputs
+*.log
+build_output.txt
+
+## Database local files
+*.mdf
+*.ldf
+*.db
+*.sqlite
+*.sqlite3
+
+## Coverage / test artifacts
+coverage/
+TestResults/
+*.coverage
+*.trx
 
 ## Publish profiles
 *.pubxml

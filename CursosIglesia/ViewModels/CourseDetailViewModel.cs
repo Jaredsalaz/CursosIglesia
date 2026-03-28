@@ -54,7 +54,7 @@ public class CourseDetailViewModel : ViewModelBase
         _enrollmentService = enrollmentService;
     }
 
-    public async Task LoadCourseAsync(int courseId)
+    public async Task LoadCourseAsync(Guid courseId)
     {
         IsLoading = true;
         ErrorMessage = null;

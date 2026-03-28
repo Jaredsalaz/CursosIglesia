@@ -1,5 +1,6 @@
-@page "/aprender/{CourseId:int}"
-@rendermode InteractiveServer
+@page "/aprender/{CourseId:guid}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 @inject LearningViewModel ViewModel
 @inject NavigationManager Navigation
 
@@ -259,14 +260,21 @@ else if (ViewModel.Course != null)
 
 @code {
     [Parameter]
-    public int CourseId { get; set; }
+    public Guid CourseId { get; set; }
 
-    protected override async Task OnParametersSetAsync()
+    private bool _isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await ViewModel.LoadCourseAsync(CourseId);
+        if (firstRender && !_isInitialized && CourseId != Guid.Empty)
+        {
+            _isInitialized = true;
+            await ViewModel.LoadCourseAsync(CourseId);
+            StateHasChanged();
+        }
     }
 
-    private async Task SelectLesson(int lessonId)
+    private async Task SelectLesson(Guid lessonId)
     {
         await ViewModel.SelectLessonAsync(lessonId);
     }

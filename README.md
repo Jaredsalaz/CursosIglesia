@@ -1,112 +1,233 @@
-# ✝️ Cursos Católicos — Plataforma de Formación en la Fe
+# Cursos Catolicos - Plataforma de Formacion en la Fe
 
-Plataforma web de cursos de formación católica en línea, desarrollada con **Blazor Server (.NET 9)**. Permite a los fieles explorar, inscribirse y avanzar en cursos sobre doctrina, Biblia, sacramentos, oración, y más.
+Plataforma web de formacion catolica en linea construida con arquitectura cliente-servidor:
 
----
+- `CursosIglesia`: Frontend en Blazor Server (.NET 9)
+- `CursosIglesiaAPI`: API REST en ASP.NET Core (.NET 9)
+- SQL Server con procedimientos almacenados (USP) para reglas de negocio y persistencia
 
-## 📸 Características
+## Estado Actual
 
-- **Catálogo de Cursos** — Exploración por categorías (Catecismo, Biblia, Sacramentos, Oración, Moral, Historia, Liturgia, Santos) con filtros de búsqueda y nivel de dificultad.
-- **Detalle del Curso** — Vista detallada con temario, instructor, duración, valoraciones y lecciones.
-- **Inscripción y Progreso** — Los usuarios pueden inscribirse en cursos gratuitos o de pago y seguir su avance.
-- **Mis Cursos** — Panel personal para visualizar cursos activos y completados.
-- **Plataforma de Aprendizaje** — Interfaz para consumir lecciones con seguimiento de progreso.
-- **Perfil de Usuario** — Gestión de datos personales, métodos de pago, seguridad y preferencias de notificaciones.
-- **Testimonios** — Reseñas y valoraciones de la comunidad estudiantil.
-- **Página "Nosotros"** — Información sobre la misión, visión y equipo detrás de la plataforma.
+- Sin mocks en el flujo principal de autenticacion, perfil y cursos.
+- JWT real entre frontend y API.
+- Patron MVVM en frontend con Inyeccion de Dependencias.
+- Backend por capas (Controllers -> Services -> SQL Server USP).
 
----
+## Tecnologias y Paquetes
 
-## 🏗️ Arquitectura
+### Base
 
-El proyecto sigue el patrón **MVVM (Model-View-ViewModel)** con inyección de dependencias:
+- .NET SDK 9.0
+- C# 13
+- Blazor Server
+- ASP.NET Core Web API
+- SQL Server
+- Dapper
+
+### Paquetes principales (Frontend)
+
+- `Blazored.LocalStorage` (manejo de token/perfil en navegador)
+- `Microsoft.AspNetCore.Components.Authorization` (estado de autenticacion)
+
+### Paquetes principales (API)
+
+- `Microsoft.AspNetCore.Authentication.JwtBearer` (validacion JWT)
+- `System.IdentityModel.Tokens.Jwt` (emision/lectura de tokens)
+- `Dapper` (acceso a datos)
+- `Microsoft.Data.SqlClient` (conexion SQL Server)
+- `BCrypt.Net-Next` (hash de contrasenas)
+
+## Arquitectura (MVVM + DI + USP)
+
+## Flujo General
+
+1. La vista Razor invoca acciones del ViewModel.
+2. El ViewModel usa interfaces de servicio (DI).
+3. El servicio cliente llama la API REST (HttpClient).
+4. La API valida JWT y deriva a Services.
+5. Services ejecutan USP via Dapper.
+6. SQL Server responde y se devuelve DTO/modelo al frontend.
+
+### Frontend (`CursosIglesia`)
+
+- `Components/Pages`: UI por modulo (`Login`, `Registro`, `Perfil`, `Cursos`, etc.).
+- `ViewModels`: logica de pantalla (estado, validaciones, orquestacion).
+- `Services/Interfaces`: contratos.
+- `Services/Implementations/ApiClients`: consumo HTTP hacia `CursosIglesiaAPI`.
+- `Program.cs`: registro DI + HttpClient + auth state provider.
+
+### API (`CursosIglesiaAPI`)
+
+- `Controllers`: endpoints HTTP.
+- `Services/Interfaces`: contratos de negocio.
+- `Services/Implementations`: logica y llamadas a USP.
+- `Models` + `Models/DTOs`: entidades y contratos de entrada/salida.
+- `Program.cs`: DI, JWT, CORS, pipeline HTTP.
+
+### Base de datos
+
+- Procedimientos almacenados como fuente principal de operaciones.
+- Ejemplo central: `usp_AutenticacionYUsuarios`.
+- Script de referencia para ajustes: `update_sp_profile.sql`.
+
+## Estructura de Solucion
 
 ```
-CursosIglesia/
-├── Components/
-│   ├── Layout/          # MainLayout (navbar + footer)
-│   ├── Pages/           # 8 páginas Razor (Home, Cursos, CursoDetalle, etc.)
-│   └── Shared/          # Componentes reutilizables (CourseCard, ProfileDropdown)
-├── Models/              # 6 modelos de dominio
-│   ├── Course.cs        # Curso con lecciones, categoría, instructor
-│   ├── Category.cs      # Categorías de cursos
-│   ├── Enrollment.cs    # Inscripciones de usuarios
-│   ├── Lesson.cs        # Lecciones individuales
-│   ├── Testimonial.cs   # Testimonios de estudiantes
-│   └── UserProfile.cs   # Perfil de usuario con pagos y notificaciones
-├── Services/
-│   ├── Interfaces/      # 5 contratos de servicio
-│   └── Implementations/ # 5 implementaciones con datos mock
-├── ViewModels/          # 6 ViewModels (Home, Courses, CourseDetail, etc.)
-├── wwwroot/             # Assets estáticos (CSS, favicon, Bootstrap)
-├── Program.cs           # Punto de entrada y configuración de DI
-└── appsettings.json     # Configuración de la aplicación
+iglesia/
+|- iglesia.sln
+|- CursosIglesia/
+|  |- Components/
+|  |- Models/
+|  |- Services/
+|  |- ViewModels/
+|  |- wwwroot/
+|  |- Program.cs
+|- CursosIglesiaAPI/
+|  |- Controllers/
+|  |- Models/
+|  |- Services/
+|  |- Program.cs
+|- update_sp_profile.sql
 ```
 
----
-
-## 🛠️ Tecnologías
-
-| Tecnología | Versión | Uso |
-|---|---|---|
-| .NET | 9.0 | Framework principal |
-| Blazor Server | — | UI interactiva con SignalR |
-| Bootstrap | 5.x | Sistema de grid y componentes |
-| Bootstrap Icons | — | Iconografía |
-| C# | 13 | Lenguaje de programación |
-
----
-
-## 🚀 Cómo ejecutar
+## Como Ejecutar (Dev)
 
 ### Prerrequisitos
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- .NET 9 SDK
+- SQL Server con la BD `CursosIglesia`
+- Cadenas de conexion y JWT configurados en `CursosIglesiaAPI/appsettings.json`
 
-### Instrucciones
+### Pasos
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/Jaredsalaz/CursosIglesia.git
-cd CursosIglesia
-
-# Restaurar dependencias
 dotnet restore
-
-# Ejecutar en modo desarrollo
+dotnet build iglesia.sln
+dotnet run --project CursosIglesiaAPI
 dotnet run --project CursosIglesia
 ```
 
-La aplicación estará disponible en `https://localhost:5001` o `http://localhost:5000`.
+### URLs comunes
 
----
+- API: `http://localhost:5285`
+- Frontend: revisar `CursosIglesia/Properties/launchSettings.json`
 
-## 📁 Páginas
+## Paso a Paso: Como se consume una API en este proyecto
 
-| Ruta | Página | Descripción |
-|---|---|---|
-| `/` | Home | Landing page con hero, categorías, cursos destacados, testimonios |
-| `/cursos` | Cursos | Catálogo completo con búsqueda y filtros |
-| `/curso/{id}` | Detalle | Información completa del curso con temario |
-| `/mis-cursos` | Mis Cursos | Cursos inscritos del usuario |
-| `/aprender/{id}` | Aprender | Plataforma de aprendizaje con lecciones |
-| `/perfil` | Perfil | Gestión de cuenta y preferencias |
-| `/nosotros` | Nosotros | Información institucional |
+Ejemplo: consumir perfil de usuario autenticado.
 
----
+1. Vista Razor dispara accion (`Perfil.razor`).
+2. ViewModel (`UserProfileViewModel`) llama `IUserService.GetProfileAsync()`.
+3. Implementacion (`ApiUserService`) crea request HTTP a `api/user/profile`.
+4. Servicio agrega header `Authorization: Bearer <token>` leyendo `authToken` de localStorage.
+5. API recibe en `UsersController` con `[Authorize]`.
+6. `UserService` ejecuta USP (`usp_AutenticacionYUsuarios`, accion `ObtenerPerfil`) via Dapper.
+7. Se mapea respuesta a `UserProfile` y regresa al frontend.
+8. ViewModel actualiza estado y la vista renderiza.
 
-## 📝 Notas
+## Guia Pro: crear un nuevo modulo API desde cero
 
-- **Datos mock**: Actualmente el proyecto utiliza datos simulados en los servicios. No requiere base de datos para funcionar.
-- **Autenticación**: Simulada con un usuario por defecto ("Gerardo Lopez"). Pendiente de integrar un sistema de autenticación real.
-- **Responsive**: Diseño adaptable a dispositivos móviles y de escritorio.
+Ejemplo: modulo `Certificados`.
 
----
+### 1) Disenar contrato funcional
 
-## 📄 Licencia
+- Definir casos de uso: crear, listar, obtener por id, eliminar.
+- Definir autorizacion: publico, autenticado o rol especifico.
 
-Este proyecto es de uso privado. Todos los derechos reservados.
+### 2) Crear modelos/DTOs
 
----
+- API:
+	- `CursosIglesiaAPI/Models/Certificate.cs`
+	- `CursosIglesiaAPI/Models/DTOs/CertificateDTOs.cs`
+- Frontend:
+	- `CursosIglesia/Models/Certificate.cs` (si aplica)
+	- `CursosIglesia/Models/DTOs/CertificateDTOs.cs`
 
-> *Ad Maiorem Dei Gloriam* 🕊️
+### 3) Crear interfaz de servicio en API
+
+- Archivo: `CursosIglesiaAPI/Services/Interfaces/ICertificateService.cs`
+- Definir metodos async necesarios.
+
+### 4) Implementar servicio en API
+
+- Archivo: `CursosIglesiaAPI/Services/Implementations/CertificateService.cs`
+- Usar Dapper + SqlConnection.
+- Invocar USP con parametros claros (`@Accion`, ids, filtros).
+
+### 5) Crear controlador en API
+
+- Archivo: `CursosIglesiaAPI/Controllers/CertificatesController.cs`
+- Exponer endpoints REST.
+- Validar entrada y responder codigos HTTP correctos.
+
+### 6) Registrar DI en API
+
+- En `CursosIglesiaAPI/Program.cs`:
+	- `builder.Services.AddScoped<ICertificateService, CertificateService>();`
+
+### 7) Crear/actualizar USP en SQL Server
+
+- Crear script versionado, por ejemplo:
+	- `sql/usp_Certificados.sql`
+- Patron recomendado:
+	- `@Accion` para multiplexar operaciones.
+	- Parametros de entrada tipados.
+	- Parametros de salida (`@Exito`, `@MensajeError`) para operaciones de escritura.
+	- `SET NOCOUNT ON`.
+
+### 8) Consumir desde frontend
+
+- Crear contrato frontend:
+	- `CursosIglesia/Services/Interfaces/ICertificateService.cs`
+- Crear cliente API:
+	- `CursosIglesia/Services/Implementations/ApiClients/ApiCertificateService.cs`
+- Registrar DI en `CursosIglesia/Program.cs` con `AddHttpClient`.
+
+### 9) Integrar en MVVM
+
+- Crear o extender ViewModel.
+- Conectar Razor Page y bind de estado.
+- Manejar loading/error/success para UX robusta.
+
+### 10) Pruebas minimas recomendadas
+
+- Probar endpoint con `.http` o Postman.
+- Probar flujo real desde pantalla.
+- Verificar autorizacion y manejo de errores.
+- Verificar que no se rompa el contrato JSON esperado.
+
+## Convenciones recomendadas
+
+- Nombres de interfaces: `I<Modulo>Service`.
+- Implementaciones API client: `Api<Modulo>Service`.
+- DTO requests: `<Operacion>Request`.
+- DTO responses: `<Modulo>Response` o `<Operacion>Response`.
+- Endpoints REST en plural (`api/certificates`).
+- Evitar SQL inline para operaciones de negocio, preferir USP.
+
+## Git y Commit
+
+Antes de commit:
+
+```bash
+git status --short
+git add .
+git commit -m "feat: actualiza arquitectura API + MVVM + JWT + documentacion"
+```
+
+Sugerencia: separar en commits pequenos por area:
+
+1. `feat(api): ...`
+2. `feat(frontend): ...`
+3. `docs(readme): ...`
+4. `chore(gitignore): ...`
+
+## Notas de seguridad
+
+- No subir secretos reales en `appsettings.*.json`.
+- Mantener `Jwt:Key` fuera del repo en produccion (User Secrets, variables de entorno o vault).
+- Las contrasenas se validan/almacenan con BCrypt, nunca texto plano.
+
+## Licencia
+
+Proyecto de uso privado.

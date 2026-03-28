@@ -1,5 +1,6 @@
 @page "/mis-cursos"
-@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 @inject ProfileViewModel ViewModel
 
 <PageTitle>Mis Cursos - Cursos Católicos</PageTitle>
@@ -128,12 +129,19 @@ else
 }
 
 @code {
-    protected override async Task OnInitializedAsync()
+    private bool _isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await ViewModel.InitializeAsync();
+        if (firstRender && !_isInitialized)
+        {
+            _isInitialized = true;
+            await ViewModel.InitializeAsync();
+            StateHasChanged();
+        }
     }
 
-    private async Task Unenroll(int courseId)
+    private async Task Unenroll(Guid courseId)
     {
         await ViewModel.UnenrollAsync(courseId);
     }

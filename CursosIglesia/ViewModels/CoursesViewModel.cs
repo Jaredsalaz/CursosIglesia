@@ -30,8 +30,8 @@ public class CoursesViewModel : ViewModelBase
         set => SetProperty(ref _categories, value);
     }
 
-    private int? _selectedCategoryId;
-    public int? SelectedCategoryId
+    private Guid? _selectedCategoryId;
+    public Guid? SelectedCategoryId
     {
         get => _selectedCategoryId;
         set
@@ -110,7 +110,7 @@ public class CoursesViewModel : ViewModelBase
     {
         var filtered = Courses.AsEnumerable();
 
-        if (SelectedCategoryId.HasValue && SelectedCategoryId.Value > 0)
+        if (SelectedCategoryId.HasValue && SelectedCategoryId.Value != Guid.Empty)
             filtered = filtered.Where(c => c.CategoryId == SelectedCategoryId.Value);
 
         if (!string.IsNullOrWhiteSpace(SearchQuery))

@@ -1,4 +1,5 @@
 using CursosIglesia.Models;
+using CursosIglesia.Models.DTOs;
 using CursosIglesia.Services.Interfaces;
 using CursosIglesia.ViewModels.Base;
 
@@ -56,7 +57,7 @@ public class LearningViewModel : ViewModelBase
         _enrollmentService = enrollmentService;
     }
 
-    public async Task LoadCourseAsync(int courseId)
+    public async Task LoadCourseAsync(Guid courseId)
     {
         IsLoading = true;
         ErrorMessage = null;
@@ -79,7 +80,7 @@ public class LearningViewModel : ViewModelBase
             }
 
             // Set current lesson
-            if (Enrollment.CurrentLessonId.HasValue)
+            if (Enrollment.CurrentLessonId.HasValue && Enrollment.CurrentLessonId.Value != Guid.Empty)
             {
                 CurrentLesson = Course.Lessons.FirstOrDefault(l => l.Id == Enrollment.CurrentLessonId.Value);
             }
@@ -103,7 +104,7 @@ public class LearningViewModel : ViewModelBase
         }
     }
 
-    public async Task SelectLessonAsync(int lessonId)
+    public async Task SelectLessonAsync(Guid lessonId)
     {
         if (Course == null || Enrollment == null) return;
 
@@ -120,7 +121,14 @@ public class LearningViewModel : ViewModelBase
     {
         if (Course == null || Enrollment == null || CurrentLesson == null) return;
 
-        await _enrollmentService.CompleteLessonAsync(Course.Id, CurrentLesson.Id, Course.Lessons.Count);
+        var request = new LessonUpdateProgressRequest
+        {
+            CourseId = Course.Id,
+            LessonId = CurrentLesson.Id,
+            TotalLessons = Course.Lessons.Count
+        };
+
+        await _enrollmentService.CompleteLessonAsync(request);
 
         // Refresh enrollment data
         Enrollment = await _enrollmentService.GetEnrollmentAsync(Course.Id);
@@ -152,7 +160,7 @@ public class LearningViewModel : ViewModelBase
         IsSidebarOpen = !IsSidebarOpen;
     }
 
-    public bool IsLessonCompleted(int lessonId)
+    public bool IsLessonCompleted(Guid lessonId)
         => Enrollment?.CompletedLessonIds.Contains(lessonId) ?? false;
 
     private void UpdateCurrentLessonStatus()

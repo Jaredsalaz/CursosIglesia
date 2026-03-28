@@ -1,0 +1,255 @@
+@page "/registro"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject RegisterViewModel ViewModel
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
+
+<PageTitle>Crear Cuenta - Cursos Católicos</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-container">
+        <!-- Left Panel: Decorative -->
+        <div class="auth-panel-left">
+            <div class="auth-panel-overlay"></div>
+            <div class="auth-panel-content">
+                <div class="auth-brand">
+                    <i class="bi bi-cross"></i>
+                    <span>Cursos Católicos</span>
+                </div>
+                <h2>Únete a Nuestra Comunidad</h2>
+                <p>Forma parte de miles de católicos que profundizan en su fe a través de nuestros cursos de formación.</p>
+                <div class="auth-features">
+                    <div class="auth-feature">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Registro completamente gratuito</span>
+                    </div>
+                    <div class="auth-feature">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Acceso a cursos gratuitos</span>
+                    </div>
+                    <div class="auth-feature">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Certificados de finalización</span>
+                    </div>
+                    <div class="auth-feature">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Foro comunitario de discusión</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Register Form -->
+        <div class="auth-panel-right">
+            <div class="auth-form-wrapper">
+                <div class="auth-form-header">
+                    <div class="auth-icon-circle">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <h1>Crear tu cuenta</h1>
+                    <p>Completa el registro para comenzar tu formación</p>
+                </div>
+
+                <!-- Step Indicator -->
+                <div class="auth-steps">
+                    <div class="auth-step @(ViewModel.CurrentStep >= 1 ? "active" : "") @(ViewModel.CurrentStep > 1 ? "completed" : "")">
+                        <div class="step-number">
+                            @if (ViewModel.CurrentStep > 1)
+                            {
+                                <i class="bi bi-check-lg"></i>
+                            }
+                            else
+                            {
+                                <span>1</span>
+                            }
+                        </div>
+                        <span class="step-label">Datos personales</span>
+                    </div>
+                    <div class="auth-step-line @(ViewModel.CurrentStep > 1 ? "active" : "")"></div>
+                    <div class="auth-step @(ViewModel.CurrentStep >= 2 ? "active" : "")">
+                        <div class="step-number"><span>2</span></div>
+                        <span class="step-label">Seguridad</span>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ViewModel.ErrorMessage))
+                {
+                    <div class="auth-alert auth-alert-error">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>@ViewModel.ErrorMessage</span>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(ViewModel.SuccessMessage))
+                {
+                    <div class="auth-alert auth-alert-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>@ViewModel.SuccessMessage</span>
+                    </div>
+                }
+
+                <div class="auth-form">
+                    @* ===== STEP 1: Personal Data ===== *@
+                    @if (ViewModel.CurrentStep == 1)
+                    {
+                        <div class="auth-step-content">
+                            <div class="auth-input-row">
+                                <div class="auth-input-group">
+                                    <label for="firstName">Nombre</label>
+                                    <div class="auth-input-wrapper">
+                                        <i class="bi bi-person"></i>
+                                        <input type="text" id="firstName" placeholder="Tu nombre"
+                                               @bind="ViewModel.RegisterModel.FirstName"
+                                               @bind:event="oninput" />
+                                    </div>
+                                </div>
+                                <div class="auth-input-group">
+                                    <label for="lastName">Apellido</label>
+                                    <div class="auth-input-wrapper">
+                                        <i class="bi bi-person"></i>
+                                        <input type="text" id="lastName" placeholder="Tu apellido"
+                                               @bind="ViewModel.RegisterModel.LastName"
+                                               @bind:event="oninput" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="regEmail">Correo electrónico</label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-envelope"></i>
+                                    <input type="email" id="regEmail" placeholder="tu@correo.com"
+                                           @bind="ViewModel.RegisterModel.Email"
+                                           @bind:event="oninput" />
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="parish">Parroquia <span class="optional-label">(opcional)</span></label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-building"></i>
+                                    <input type="text" id="parish" placeholder="Tu parroquia"
+                                           @bind="ViewModel.RegisterModel.Parish"
+                                           @bind:event="oninput" />
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="country">País</label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-globe"></i>
+                                    <select id="country" @bind="ViewModel.RegisterModel.Country">
+                                        <option value="México">México</option>
+                                        <option value="Colombia">Colombia</option>
+                                        <option value="Argentina">Argentina</option>
+                                        <option value="Chile">Chile</option>
+                                        <option value="España">España</option>
+                                        <option value="Otros">Otros</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button class="auth-submit-btn" @onclick="HandleNextStep">
+                                <span>Continuar</span>
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    }
+
+                    @* ===== STEP 2: Security ===== *@
+                    @if (ViewModel.CurrentStep == 2)
+                    {
+                        <div class="auth-step-content">
+                            <div class="auth-input-group">
+                                <label for="regPassword">Contraseña</label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-lock"></i>
+                                    <input type="@(ViewModel.ShowPassword ? "text" : "password")" id="regPassword"
+                                           placeholder="Mínimo 4 caracteres"
+                                           @bind="ViewModel.RegisterModel.Password"
+                                           @bind:event="oninput" />
+                                    <button type="button" class="auth-toggle-password" @onclick="ViewModel.TogglePassword">
+                                        <i class="bi @(ViewModel.ShowPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="confirmPassword">Confirmar contraseña</label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-lock-fill"></i>
+                                    <input type="@(ViewModel.ShowConfirmPassword ? "text" : "password")" id="confirmPassword"
+                                           placeholder="Repite tu contraseña"
+                                           @bind="ViewModel.RegisterModel.ConfirmPassword"
+                                           @bind:event="oninput" />
+                                    <button type="button" class="auth-toggle-password" @onclick="ViewModel.ToggleConfirmPassword">
+                                        <i class="bi @(ViewModel.ShowConfirmPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <label class="auth-checkbox" style="margin-bottom: 1.5rem;">
+                                <input type="checkbox" @bind="ViewModel.RegisterModel.AcceptTerms" />
+                                <span class="checkmark"></span>
+                                Acepto los <a href="#" class="auth-link">términos y condiciones</a> y la <a href="#" class="auth-link">política de privacidad</a>
+                            </label>
+
+                            <div class="auth-btn-row">
+                                <button class="auth-back-btn" @onclick="ViewModel.PreviousStep">
+                                    <i class="bi bi-arrow-left"></i>
+                                    <span>Atrás</span>
+                                </button>
+                                <button class="auth-submit-btn" @onclick="HandleRegister" disabled="@ViewModel.IsSubmitting">
+                                    @if (ViewModel.IsSubmitting)
+                                    {
+                                        <span class="auth-spinner"></span>
+                                        <span>Creando cuenta...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-person-check"></i>
+                                        <span>Crear Cuenta</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="auth-footer-text">
+                        ¿Ya tienes cuenta?
+                        <a href="/login" class="auth-link-bold">Iniciar Sesión</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        if (AuthService.IsAuthenticated)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private void HandleNextStep()
+    {
+        ViewModel.NextStep();
+        StateHasChanged();
+    }
+
+    private async Task HandleRegister()
+    {
+        var success = await ViewModel.RegisterAsync();
+        StateHasChanged();
+
+        if (success)
+        {
+            await Task.Delay(1200);
+            NavigationManager.NavigateTo("/");
+        }
+    }
+}

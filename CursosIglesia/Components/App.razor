@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -19,9 +19,26 @@
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
     <script src="@Assets["lib/bootstrap/dist/js/bootstrap.bundle.min.js"]"></script>
+    <script>
+        function reinitBootstrap() {
+            document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(el => {
+                bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+            });
+            document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(el => {
+                bootstrap.Dropdown.getOrCreateInstance(el);
+            });
+        }
+        Blazor.addEventListener('enhancedload', () => {
+            window.scrollTo(0, 0);
+            setTimeout(reinitBootstrap, 100);
+        });
+        Blazor.addEventListener('afterStarted', () => {
+            reinitBootstrap();
+        });
+    </script>
 </body>
 
 </html>

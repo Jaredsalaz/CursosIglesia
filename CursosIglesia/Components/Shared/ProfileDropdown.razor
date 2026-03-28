@@ -1,5 +1,6 @@
-@rendermode InteractiveServer
 @inject IUserService UserService
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
 
 <div class="nav-profile-dropdown">
     <button class="nav-avatar-btn" @onclick="ToggleDropdown" @onclick:stopPropagation="true">
@@ -32,9 +33,9 @@
                 <i class="bi bi-gear me-2"></i> Configuración
             </a>
             <div class="dropdown-divider"></div>
-            <a href="/" class="dropdown-item-custom dropdown-logout" @onclick="CloseDropdown">
+            <button class="dropdown-item-custom dropdown-logout" @onclick="HandleLogout">
                 <i class="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
-            </a>
+            </button>
         </div>
     }
 </div>
@@ -48,13 +49,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var profile = await UserService.GetProfileAsync();
-        _avatarUrl = profile.AvatarUrl;
-        _firstName = profile.FirstName;
-        _fullName = profile.FullName;
-        _email = profile.Email;
+        try
+        {
+            var profile = await UserService.GetProfileAsync();
+            if (profile != null)
+            {
+                _avatarUrl = profile.AvatarUrl;
+                _firstName = profile.FirstName;
+                _fullName = profile.FullName;
+                _email = profile.Email;
+            }
+        }
+        catch
+        {
+            // Silently fail during prerendering or if API is unavailable
+        }
     }
 
     private void ToggleDropdown() => _dropdownOpen = !_dropdownOpen;
     private void CloseDropdown() => _dropdownOpen = false;
+
+    private async Task HandleLogout()
+    {
+        CloseDropdown();
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
 }

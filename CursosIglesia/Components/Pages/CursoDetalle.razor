@@ -1,5 +1,4 @@
-@page "/curso/{CourseId:int}"
-@rendermode InteractiveServer
+@page "/curso/{CourseId:guid}"
 @inject CourseDetailViewModel ViewModel
 
 <PageTitle>@(ViewModel.Course?.Title ?? "Curso") - Cursos Católicos</PageTitle>
@@ -268,7 +267,7 @@ else
 
 @code {
     [Parameter]
-    public int CourseId { get; set; }
+    public Guid CourseId { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {

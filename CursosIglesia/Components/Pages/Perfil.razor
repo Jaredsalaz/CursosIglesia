@@ -1,6 +1,9 @@
 @page "/perfil"
-@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
 @inject UserProfileViewModel ViewModel
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 
 <PageTitle>Mi Perfil - Cursos Católicos</PageTitle>
 
@@ -121,8 +124,15 @@ else
                     </div>
 
                     <div class="profile-action-bar">
-                        <button class="btn-catholic" @onclick="SaveProfile">
-                            <i class="bi bi-check-lg me-1"></i> Guardar Cambios
+                        <button class="btn-catholic" @onclick="SaveProfile" disabled="@ViewModel.IsSavingProfile">
+                            @if (ViewModel.IsSavingProfile)
+                            {
+                                <i class="bi bi-arrow-repeat me-1"></i><span>Guardando...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-1"></i><span>Guardar Cambios</span>
+                            }
                         </button>
                     </div>
                 }
@@ -149,8 +159,15 @@ else
                             </div>
                         </div>
                         <div class="profile-action-bar">
-                            <button class="btn-catholic" @onclick="ChangePassword">
-                                <i class="bi bi-shield-check me-1"></i> Actualizar Contraseña
+                            <button class="btn-catholic" @onclick="ChangePassword" disabled="@ViewModel.IsChangingPassword">
+                                @if (ViewModel.IsChangingPassword)
+                                {
+                                    <i class="bi bi-arrow-repeat me-1"></i><span>Actualizando...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shield-check me-1"></i><span>Actualizar Contraseña</span>
+                                }
                             </button>
                         </div>
                     </div>
@@ -281,8 +298,15 @@ else
                             </div>
                         </div>
                         <div class="profile-action-bar">
-                            <button class="btn-catholic" @onclick="SaveNotifications">
-                                <i class="bi bi-check-lg me-1"></i> Guardar Preferencias
+                            <button class="btn-catholic" @onclick="SaveNotifications" disabled="@ViewModel.IsSavingNotifications">
+                                @if (ViewModel.IsSavingNotifications)
+                                {
+                                    <i class="bi bi-arrow-repeat me-1"></i><span>Guardando...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-lg me-1"></i><span>Guardar Preferencias</span>
+                                }
                             </button>
                         </div>
                     </div>
@@ -293,9 +317,36 @@ else
 }
 
 @code {
-    protected override async Task OnInitializedAsync()
+    private bool _isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await ViewModel.InitializeAsync();
+        if (firstRender && !_isInitialized)
+        {
+            _isInitialized = true;
+            
+            try
+            {
+                var token = await LocalStorage.GetItemAsync<string>("authToken");
+                Console.WriteLine($"[Perfil.razor] OnAfterRenderAsync - Token in storage: {(!string.IsNullOrEmpty(token))}");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    Console.WriteLine($"[Perfil.razor] Token preview: {token.Substring(0, Math.Min(30, token.Length))}...");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Perfil.razor] Error checking token: {ex.GetType().Name} - {ex.Message}");
+            }
+            
+            // ✅ WAIT for component to fully hydrate before making API calls
+            Console.WriteLine($"[Perfil.razor] Waiting 200ms for hydration to complete...");
+            await Task.Delay(200);
+            
+            Console.WriteLine($"[Perfil.razor] Calling ViewModel.InitializeAsync()");
+            await ViewModel.InitializeAsync();
+            StateHasChanged();
+        }
     }
 
     private void SwitchToPersonal() => ViewModel.SwitchTab("personal");
@@ -313,7 +364,7 @@ else
         await ViewModel.ChangePasswordAsync();
     }
 
-    private async Task RemovePayment(int id)
+    private async Task RemovePayment(Guid id)
     {
         await ViewModel.RemovePaymentMethodAsync(id);
     }

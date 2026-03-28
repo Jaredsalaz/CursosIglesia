@@ -84,7 +84,7 @@ public class ProfileViewModel : ViewModelBase
         }
     }
 
-    public async Task UnenrollAsync(int courseId)
+    public async Task UnenrollAsync(Guid courseId)
     {
         await _enrollmentService.UnenrollAsync(courseId);
         await InitializeAsync();

@@ -1,0 +1,6 @@
+@CursosIglesiaAPI_HostAddress = http://localhost:5285
+
+GET {{CursosIglesiaAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
