@@ -59,7 +59,28 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
         
         if (keyValuePairs == null) return Enumerable.Empty<Claim>();
         
-        return keyValuePairs.Select(kvp => new Claim(kvp.Key, kvp.Value?.ToString() ?? string.Empty));
+        var claims = new List<Claim>();
+        Console.WriteLine("[CustomAuthState] Parsing JWT claims:");
+        foreach (var kvp in keyValuePairs)
+        {
+            Console.WriteLine($"[CustomAuthState] Raw Key: {kvp.Key}, Value: {kvp.Value}");
+            var claimType = kvp.Key == "role" ? ClaimTypes.Role :
+                            kvp.Key == "name" ? ClaimTypes.Name :
+                            kvp.Key;
+
+            if (kvp.Value is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    claims.Add(new Claim(claimType, item.ToString()));
+                }
+            }
+            else
+            {
+                claims.Add(new Claim(claimType, kvp.Value?.ToString() ?? string.Empty));
+            }
+        }
+        return claims;
     }
 
     private byte[] ParseBase64WithoutPadding(string base64)

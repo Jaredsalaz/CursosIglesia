@@ -27,6 +27,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<CustomAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthenticationStateProvider>());
+builder.Services.AddSingleton<CursosIglesia.Services.InMemoryTokenStore>();
 builder.Services.AddTransient<JwtAuthorizationHandler>();
 
 // Register API Clients (HttpClient with Token Handler)
@@ -53,6 +54,10 @@ builder.Services.AddHttpClient<IUserService, ApiUserService>(client => client.Ba
 
 builder.Services.AddScoped<IMaestroService, ApiMaestroService>();
 builder.Services.AddHttpClient<IMaestroService, ApiMaestroService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
+
+builder.Services.AddScoped<IAdminService, ApiAdminService>();
+builder.Services.AddHttpClient<IAdminService, ApiAdminService>(client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
 // Register ViewModels

@@ -17,6 +17,7 @@ public class AuthService : IAuthService
     {
         public Guid IdUsuario { get; set; }
         public Guid IdRol { get; set; }
+        public string NombreRol { get; set; } = string.Empty;
         public string Nombre { get; set; } = string.Empty;
         public string Apellidos { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
@@ -83,7 +84,7 @@ public class AuthService : IAuthService
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
     }
 
-    private string GenerateJwtToken(UserProfile user)
+    private string GenerateJwtToken(UserProfile user, string roleName = "Estudiante")
     {
         var jwtSettings = _configuration.GetSection("Jwt");
         var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]!);
@@ -95,8 +96,8 @@ public class AuthService : IAuthService
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Name, user.FullName)
-                // Aquí podrías añadir un claim de "Role" si lo tuvieras en la BD
+                new Claim(ClaimTypes.Name, user.FullName),
+                new Claim(ClaimTypes.Role, roleName)
             }),
             Expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["DurationInMinutes"] ?? "1440")),
             Issuer = jwtSettings["Issuer"],
@@ -135,6 +136,16 @@ public class AuthService : IAuthService
 
             if (dbUser != null && passwordValid)
             {
+                // If NombreRol is empty, try to get it from the Roles table
+                var roleName = dbUser.NombreRol;
+                if (string.IsNullOrWhiteSpace(roleName))
+                {
+                    roleName = await db.QueryFirstOrDefaultAsync<string>(
+                        "SELECT Nombre FROM Roles WHERE Id = @IdRol",
+                        new { dbUser.IdRol }
+                    ) ?? "Estudiante";
+                }
+
                 var user = new UserProfile
                 {
                     Id = dbUser.IdUsuario,
@@ -153,8 +164,8 @@ public class AuthService : IAuthService
                     JoinedDate = dbUser.FechaRegistro ?? DateTime.UtcNow
                 };
 
-                var token = GenerateJwtToken(user);
-                return new AuthResponse { Success = true, Profile = user, Token = token };
+                var token = GenerateJwtToken(user, roleName);
+                return new AuthResponse { Success = true, Profile = user, Token = token, Role = roleName };
             }
 
             return new AuthResponse

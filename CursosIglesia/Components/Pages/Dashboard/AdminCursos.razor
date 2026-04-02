@@ -1,0 +1,488 @@
+@page "/dashboard/admin/cursos"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IAdminService AdminService
+@inject IJSRuntime JS
+@inject HttpClient Http
+@using CursosIglesia.Models.DTOs
+@using CursosIglesia.Models
+
+<!-- Actions Bar -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div class="dash-search" style="flex:1; max-width:400px; margin-bottom:0;">
+        <i class="bi bi-search"></i>
+        <input type="text" placeholder="Buscar curso..." @bind="searchTerm" @bind:event="oninput" />
+    </div>
+    <button class="dash-btn dash-btn-primary" @onclick="OpenCreateModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Curso
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<!-- Courses Table -->
+<div class="dash-panel">
+    <div class="dash-panel-body" style="padding:0;">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (filteredCourses.Any())
+        {
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Curso</th>
+                        <th>Categoría</th>
+                        <th>Maestro Asignado</th>
+                        <th>Lecciones</th>
+                        <th>Alumnos</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in filteredCourses)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    @if (!string.IsNullOrEmpty(c.ImageUrl))
+                                    {
+                                        <img src="@(apiBaseUrl + c.ImageUrl)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" />
+                                    }
+                                    else
+                                    {
+                                        <div style="width: 40px; height: 40px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-journal-bookmark text-muted"></i>
+                                        </div>
+                                    }
+                                    <div>
+                                        <div style="font-weight:600;">@c.Title</div>
+                                        <div style="font-size:0.75rem; color:var(--dash-text-muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@c.ShortDescription</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="dash-badge dash-badge-info">@c.CategoryName</span></td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(c.Instructor) && c.Instructor != "Sin asignar")
+                                {
+                                    <span style="color: var(--dash-success)"><i class="bi bi-person-check"></i> @c.Instructor</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--dash-warning)"><i class="bi bi-person-dash"></i> Sin asignar</span>
+                                }
+                            </td>
+                            <td>@c.LessonsCount</td>
+                            <td>@c.StudentsEnrolled</td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenEditModal(c)" title="Editar Curso">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" style="color:red; border-color:red;" @onclick="() => DeleteCourse(c.Id)" title="Eliminar Curso">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenAssignModal(c)" title="Asignar Maestro">
+                                        <i class="bi bi-person-plus"></i> Asignar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-journal-bookmark"></i>
+                <h4>No se encontraron cursos</h4>
+                <p>Crea un nuevo curso con el botón superior</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Course Form Modal -->
+@if (showCourseModal)
+{
+    <div class="dash-modal-backdrop" @onclick="() => showCourseModal = false">
+        <div class="dash-modal" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title">
+                    <i class="bi bi-journal-plus" style="color:var(--dash-accent)"></i> 
+                    @(isEditMode ? "Editar Curso" : "Crear Nuevo Curso")
+                </span>
+                <button class="dash-modal-close" @onclick="() => showCourseModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Título del Curso *</label>
+                    <input class="dash-form-input" @bind="courseModel.Titulo" placeholder="Título del curso" />
+                </div>
+                
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Imagen del Curso</label>
+                    @if (!string.IsNullOrEmpty(courseModel.ImagenUrl))
+                    {
+                        <div style="margin-bottom: 10px; position: relative; display: inline-block;">
+                            <img src="@(apiBaseUrl + courseModel.ImagenUrl)" style="height: 120px; border-radius: 8px; object-fit: cover;" />
+                            <button type="button" @onclick="() => courseModel.ImagenUrl = null" style="position: absolute; top: 5px; right: 5px; background: white; border: none; border-radius: 50%; padding: 4px; cursor: pointer; color: red;">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>
+                    }
+                    
+                    <InputFile class="dash-form-input" OnChange="UploadImage" accept=".jpg,.jpeg,.png,.webp" />
+                    
+                    @if (uploadingImage)
+                    {
+                        <small style="color: var(--dash-accent); display: block; margin-top: 5px;">
+                            <i class="bi bi-hourglass-split"></i> Subiendo imagen...
+                        </small>
+                    }
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Descripción Corta</label>
+                    <input class="dash-form-input" @bind="courseModel.DescripcionCorta" placeholder="Breve descripción" />
+                </div>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Descripción Completa</label>
+                    <textarea class="dash-form-textarea" @bind="courseModel.Descripcion" placeholder="Descripción detallada del curso" rows="4"></textarea>
+                </div>
+                <div class="dash-form-row">
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Categoría *</label>
+                        <select class="dash-form-select" @bind="courseModel.IdCategoria">
+                            <option value="@Guid.Empty">Seleccionar...</option>
+                            @foreach (var cat in categorias)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Maestro</label>
+                        <select class="dash-form-select" @bind="selectedMaestroId">
+                            <option value="@Guid.Empty">Sin asignar</option>
+                            @foreach (var m in maestros)
+                            {
+                                <option value="@m.Id">@m.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="dash-form-row">
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Dificultad</label>
+                        <select class="dash-form-select" @bind="courseModel.Dificultad">
+                            <option value="@DifficultyLevel.Principiante">Principiante</option>
+                            <option value="@DifficultyLevel.Intermedio">Intermedio</option>
+                            <option value="@DifficultyLevel.Avanzado">Avanzado</option>
+                        </select>
+                    </div>
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Duración (horas)</label>
+                        <input class="dash-form-input" type="number" @bind="courseModel.DuracionHoras" />
+                    </div>
+                </div>
+                <div class="dash-form-row">
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Precio ($)</label>
+                        <input class="dash-form-input" type="number" step="0.01" @bind="courseModel.Precio" />
+                    </div>
+                    <div class="dash-form-group" style="display:flex; align-items:flex-end; gap:16px; padding-bottom:16px;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                            <input type="checkbox" @bind="courseModel.EsGratis" /> Gratuito
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                            <input type="checkbox" @bind="courseModel.EsDestacado" /> Destacado
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showCourseModal = false">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="SaveCourse" disabled="@(saving || uploadingImage)">
+                    @if (saving) { <span>Guardando...</span> } else { <span><i class="bi bi-check-lg"></i> Guardar Curso</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Assign Course Modal -->
+@if (showAssignModal && selectedCourse != null)
+{
+    <div class="dash-modal-backdrop" @onclick="() => showAssignModal = false">
+        <div class="dash-modal" style="max-width:420px;" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title"><i class="bi bi-person-plus" style="color:var(--dash-accent)"></i> Asignar Maestro</span>
+                <button class="dash-modal-close" @onclick="() => showAssignModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <p style="margin-bottom:16px;">Asignar un maestro al curso: <strong>@selectedCourse.Title</strong></p>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Seleccionar Maestro</label>
+                    <select class="dash-form-select" @bind="assignMaestroId">
+                        <option value="@Guid.Empty">Seleccionar maestro...</option>
+                        @foreach (var m in maestros)
+                        {
+                            <option value="@m.Id">@m.NombreCompleto — @m.Especialidad</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showAssignModal = false">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="AssignCourse" disabled="@saving">
+                    <i class="bi bi-check-lg"></i> Asignar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CourseWithMaestro> courses = new();
+    private List<MaestroDetail> maestros = new();
+    private List<Category> categorias = new();
+    private bool loading = true, saving = false;
+    
+    private bool showCourseModal = false;
+    private bool isEditMode = false;
+    private Guid editCourseId = Guid.Empty;
+    
+    private bool showAssignModal = false;
+    
+    private string searchTerm = "", alertMessage = "", alertClass = "", alertIcon = "";
+    
+    private UpdateCourseRequest courseModel = new();
+    private CourseWithMaestro? selectedCourse;
+    private Guid selectedMaestroId = Guid.Empty;
+    private Guid assignMaestroId = Guid.Empty;
+
+    private bool uploadingImage = false;
+    private string apiBaseUrl = "";
+
+    private IEnumerable<CourseWithMaestro> filteredCourses => string.IsNullOrWhiteSpace(searchTerm)
+        ? courses
+        : courses.Where(c => c.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || c.Instructor.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        apiBaseUrl = Http.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost:5285";
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        try
+        {
+            var t1 = AdminService.GetAllCoursesAsync();
+            var t2 = AdminService.GetAllMaestrosAsync();
+            var t3 = AdminService.GetCategoriasAsync();
+            await Task.WhenAll(t1, t2, t3);
+            courses = t1.Result;
+            maestros = t2.Result;
+            categorias = t3.Result;
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { loading = false; }
+    }
+
+    private void OpenCreateModal()
+    {
+        isEditMode = false;
+        editCourseId = Guid.Empty;
+        courseModel = new UpdateCourseRequest
+        {
+            EsGratis = true,
+            Dificultad = DifficultyLevel.Principiante
+        };
+        selectedMaestroId = Guid.Empty;
+        showCourseModal = true;
+    }
+
+    private void OpenEditModal(CourseWithMaestro course)
+    {
+        isEditMode = true;
+        editCourseId = course.Id;
+        courseModel = new UpdateCourseRequest
+        {
+            Titulo = course.Title,
+            DescripcionCorta = course.ShortDescription,
+            Descripcion = course.Description,
+            IdCategoria = course.CategoryId,
+            ImagenUrl = course.ImageUrl,
+            Precio = course.Price,
+            Dificultad = course.Difficulty,
+            EsGratis = course.IsFree,
+            EsDestacado = course.IsFeatured,
+            DuracionHoras = course.DurationHours
+        };
+        selectedMaestroId = course.MaestroId ?? course.IdMaestro ?? Guid.Empty;
+        showCourseModal = true;
+    }
+
+    private async Task UploadImage(InputFileChangeEventArgs e)
+    {
+        uploadingImage = true;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(file.OpenReadStream(5 * 1024 * 1024)); // 5MB max
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await AdminService.UploadImageAsync(content);
+            
+            if (response.Success)
+            {
+                courseModel.ImagenUrl = response.Url;
+            }
+            else
+            {
+                ShowAlert(response.Message, "warning");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error al subir imagen: {ex.Message}", "danger");
+        }
+        finally
+        {
+            uploadingImage = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveCourse()
+    {
+        if (string.IsNullOrWhiteSpace(courseModel.Titulo))
+        { ShowAlert("El título es obligatorio", "warning"); return; }
+
+        if (courseModel.IdCategoria == Guid.Empty)
+        { ShowAlert("La categoría es obligatoria", "warning"); return; }
+
+        courseModel.IdMaestro = selectedMaestroId == Guid.Empty ? null : selectedMaestroId;
+        
+        saving = true;
+        try
+        {
+            ApiResponse result;
+            
+            if (isEditMode)
+            {
+                result = await AdminService.ActualizarCursoAsync(editCourseId, courseModel);
+            }
+            else
+            {
+                var createResult = await AdminService.CrearCursoAsync(new CreateCourseRequest 
+                {
+                    Titulo = courseModel.Titulo,
+                    Descripcion = courseModel.Descripcion,
+                    DescripcionCorta = courseModel.DescripcionCorta,
+                    IdCategoria = courseModel.IdCategoria,
+                    IdMaestro = courseModel.IdMaestro,
+                    ImagenUrl = courseModel.ImagenUrl ?? "",
+                    Precio = courseModel.Precio,
+                    Dificultad = courseModel.Dificultad,
+                    EsGratis = courseModel.EsGratis,
+                    EsDestacado = courseModel.EsDestacado,
+                    DuracionHoras = courseModel.DuracionHoras
+                });
+                
+                result = new ApiResponse { Success = createResult.Success, Message = createResult.Message };
+            }
+
+            if (result.Success)
+            {
+                ShowAlert($"Curso {(isEditMode ? "actualizado" : "creado")} exitosamente", "success");
+                showCourseModal = false;
+                await LoadData();
+            }
+            else ShowAlert(result.Message, "danger");
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private async Task DeleteCourse(Guid id)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿Estás seguro de eliminar este curso? Esta acción no se puede deshacer.");
+        if (!confirmado) return;
+
+        try
+        {
+            var result = await AdminService.EliminarCursoAsync(id);
+            if (result.Success)
+            {
+                ShowAlert("Curso eliminado exitosamente", "success");
+                await LoadData();
+            }
+            else
+            {
+                ShowAlert(result.Message, "danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error: {ex.Message}", "danger");
+        }
+    }
+
+    private void OpenAssignModal(CourseWithMaestro course)
+    {
+        selectedCourse = course;
+        assignMaestroId = course.MaestroId ?? course.IdMaestro ?? Guid.Empty;
+        showAssignModal = true;
+    }
+
+    private async Task AssignCourse()
+    {
+        if (selectedCourse == null || assignMaestroId == Guid.Empty)
+        { ShowAlert("Selecciona un maestro", "warning"); return; }
+
+        saving = true;
+        try
+        {
+            var result = await AdminService.AsignarCursoAsync(selectedCourse.Id, assignMaestroId);
+            if (result.Success)
+            {
+                ShowAlert("Curso asignado exitosamente", "success");
+                showAssignModal = false;
+                await LoadData();
+            }
+            else ShowAlert(result.Message, "danger");
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertClass = $"dash-alert-{type}";
+        alertIcon = type == "success" ? "bi-check-circle" : type == "danger" ? "bi-exclamation-circle" : "bi-exclamation-triangle";
+        
+        // Hide alert after 5 seconds
+        _ = Task.Run(async () => 
+        {
+            await Task.Delay(5000);
+            alertMessage = "";
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+}

@@ -1,0 +1,120 @@
+@page "/dashboard/maestro"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IAuthService AuthService
+@using CursosIglesia.Models.DTOs
+
+<div class="metrics-grid">
+    <div class="metric-card" style="--metric-color: var(--dash-info)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-blue"><i class="bi bi-journal-bookmark"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalCursos</div>
+        <div class="metric-card-label">Mis Cursos</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-success)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-green"><i class="bi bi-people"></i></div>
+            @if (metrics.InscripcionesRecientes > 0)
+            {
+                <span class="metric-change positive">+@metrics.InscripcionesRecientes nuevos</span>
+            }
+        </div>
+        <div class="metric-card-value">@metrics.TotalAlumnos</div>
+        <div class="metric-card-label">Total Alumnos</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-accent)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-gold"><i class="bi bi-list-check"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalLecciones</div>
+        <div class="metric-card-label">Lecciones Creadas</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-warning)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-orange"><i class="bi bi-file-earmark"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalDocumentos</div>
+        <div class="metric-card-label">Documentos</div>
+    </div>
+</div>
+
+<!-- My Courses Preview -->
+<div class="dash-panel">
+    <div class="dash-panel-header">
+        <span class="dash-panel-title"><i class="bi bi-journal-bookmark"></i> Mis Cursos</span>
+        <a href="/dashboard/maestro/cursos" class="dash-btn dash-btn-outline dash-btn-sm">Ver todos</a>
+    </div>
+    <div class="dash-panel-body">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (courses.Any())
+        {
+            <div class="course-grid">
+                @foreach (var c in courses.Take(3))
+                {
+                    <div class="course-dash-card">
+                        <div class="course-dash-card-img">
+                            @if (!string.IsNullOrEmpty(c.ImageUrl))
+                            {
+                                <img src="@c.ImageUrl" alt="@c.Title" />
+                            }
+                            else
+                            {
+                                <i class="bi bi-book"></i>
+                            }
+                        </div>
+                        <div class="course-dash-card-body">
+                            <div class="course-dash-card-title">@c.Title</div>
+                            <div style="font-size:0.82rem; color:var(--dash-text-muted); margin-bottom:4px;">@c.CategoryName</div>
+                            <div class="course-dash-card-stats">
+                                <span><i class="bi bi-people"></i> @c.StudentsEnrolled alumnos</span>
+                                <span><i class="bi bi-list-check"></i> @c.LessonsCount lecciones</span>
+                            </div>
+                        </div>
+                        <div class="course-dash-card-actions">
+                            <a href="/dashboard/maestro/cursos/@c.Id/lecciones" class="dash-btn dash-btn-outline dash-btn-sm" style="flex:1; justify-content:center;">
+                                <i class="bi bi-pencil-square"></i> Gestionar
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-journal-bookmark"></i>
+                <h4>Aún no tienes cursos asignados</h4>
+                <p>El Super Admin te asignará cursos próximamente</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private MaestroMetrics metrics = new();
+    private List<CursosIglesia.Models.Course> courses = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        try
+        {
+            var userId = AuthService.CurrentUser?.Id ?? Guid.Empty;
+            var t1 = MaestroService.GetMaestroMetricsAsync(userId);
+            var t2 = MaestroService.GetMaestroCoursesAsync(userId);
+            await Task.WhenAll(t1, t2);
+            metrics = t1.Result;
+            courses = t2.Result;
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally { loading = false; }
+    }
+}

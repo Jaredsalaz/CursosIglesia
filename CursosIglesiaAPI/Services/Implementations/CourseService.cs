@@ -77,7 +77,15 @@ public class CourseService : ICourseService
         var course = await multi.ReadFirstOrDefaultAsync<Course>();
         if (course != null)
         {
-            course.Lessons = (await multi.ReadAsync<Lesson>()).ToList();
+            var lessons = (await multi.ReadAsync<Lesson>()).ToList();
+            var topics = (await multi.ReadAsync<Tema>()).ToList();
+            
+            foreach (var lesson in lessons)
+            {
+                lesson.Topics = topics.Where(t => t.LessonId == lesson.Id).OrderBy(t => t.Order).ToList();
+            }
+            
+            course.Lessons = lessons;
         }
         return course;
     }

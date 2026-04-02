@@ -19,6 +19,7 @@ builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMaestroService, MaestroService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -128,6 +129,18 @@ else
 {
     app.UseHttpsRedirection();
 }
+
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+{
+    Directory.CreateDirectory(uploadsPath);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.UseCors("AllowBlazor");
 

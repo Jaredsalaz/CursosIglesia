@@ -1,0 +1,85 @@
+@page "/dashboard/admin/documentos"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IAdminService AdminService
+@using CursosIglesia.Models
+
+<div class="dash-search" style="max-width:400px;">
+    <i class="bi bi-search"></i>
+    <input type="text" placeholder="Buscar documento..." @bind="searchTerm" @bind:event="oninput" />
+</div>
+
+<div class="dash-panel">
+    <div class="dash-panel-body" style="padding:0;">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (filtered.Any())
+        {
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Tipo</th>
+                        <th>Curso Asociado</th>
+                        <th>Fecha Subida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in filtered)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <i class="bi @GetFileIcon(d.TipoDocumento)" style="font-size:1.3rem; color:var(--dash-accent);"></i>
+                                    <div>
+                                        <div style="font-weight:600;">@d.NombreArchivo</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="dash-badge dash-badge-info">@d.TipoDocumento</span></td>
+                            <td>@d.NombreCursoAsociado</td>
+                            <td style="font-size:0.82rem; color:var(--dash-text-muted);">@d.FechaSubida.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-file-earmark-text"></i>
+                <h4>No se encontraron documentos</h4>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<TeacherDocument> documentos = new();
+    private bool loading = true;
+    private string searchTerm = "";
+
+    private IEnumerable<TeacherDocument> filtered => string.IsNullOrWhiteSpace(searchTerm)
+        ? documentos
+        : documentos.Where(d => d.NombreArchivo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || d.NombreCursoAsociado.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || d.TipoDocumento.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { documentos = await AdminService.GetAllDocumentosAsync(); }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally { loading = false; }
+    }
+
+    private string GetFileIcon(string tipo) => tipo?.ToLower() switch
+    {
+        "pdf" => "bi-file-earmark-pdf",
+        "imagen" or "image" => "bi-file-earmark-image",
+        "video" => "bi-file-earmark-play",
+        "presentacion" or "pptx" => "bi-file-earmark-slides",
+        "documento" or "docx" or "word" => "bi-file-earmark-word",
+        _ => "bi-file-earmark"
+    };
+}

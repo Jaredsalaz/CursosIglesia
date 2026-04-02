@@ -1,0 +1,124 @@
+@page "/dashboard/maestro/inscripciones"
+@page "/dashboard/maestro/cursos/{CourseId:guid}/inscripciones"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IAuthService AuthService
+@using CursosIglesia.Models.DTOs
+
+<div class="dash-search" style="max-width:400px;">
+    <i class="bi bi-search"></i>
+    <input type="text" placeholder="Buscar alumno o curso..." @bind="searchTerm" @bind:event="oninput" />
+</div>
+
+<div class="dash-panel">
+    <div class="dash-panel-header">
+        <span class="dash-panel-title">
+            <i class="bi bi-person-lines-fill"></i>
+            @if (CourseId != Guid.Empty)
+            {
+                <span>Alumnos del Curso</span>
+            }
+            else
+            {
+                <span>Todos Mis Alumnos</span>
+            }
+        </span>
+        <span class="dash-badge dash-badge-gold">@filtered.Count() alumnos</span>
+    </div>
+    <div class="dash-panel-body" style="padding:0;">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (filtered.Any())
+        {
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Alumno</th>
+                        <th>Curso</th>
+                        <th>Fecha Inscripción</th>
+                        <th>Progreso</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in filtered)
+                    {
+                        <tr>
+                            <td>
+                                <div style="font-weight:600;">@i.StudentName</div>
+                                <div style="font-size:0.75rem; color:var(--dash-text-muted);">@i.StudentEmail</div>
+                            </td>
+                            <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@i.CourseName</td>
+                            <td style="font-size:0.82rem;">@i.EnrolledDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <div class="dash-progress" style="width:80px; flex-shrink:0;">
+                                        <div class="dash-progress-bar" style="width: @(i.Progress)%"></div>
+                                    </div>
+                                    <span style="font-size:0.78rem; color:var(--dash-text-muted)">@(i.Progress.ToString("F0"))%</span>
+                                </div>
+                            </td>
+                            <td>
+                                @if (i.IsCompleted)
+                                {
+                                    <span class="dash-badge dash-badge-success"><i class="bi bi-check-circle"></i> Completado</span>
+                                }
+                                else if (i.Progress > 0)
+                                {
+                                    <span class="dash-badge dash-badge-info"><i class="bi bi-play-circle"></i> En progreso</span>
+                                }
+                                else
+                                {
+                                    <span class="dash-badge dash-badge-warning"><i class="bi bi-clock"></i> Pendiente</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-person-lines-fill"></i>
+                <h4>No hay inscripciones</h4>
+                <p>Los alumnos se inscribirán cuando los cursos estén disponibles</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid CourseId { get; set; }
+
+    private List<EnrollmentDetail> inscripciones = new();
+    private bool loading = true;
+    private string searchTerm = "";
+
+    private IEnumerable<EnrollmentDetail> filtered => string.IsNullOrWhiteSpace(searchTerm)
+        ? inscripciones
+        : inscripciones.Where(i => i.StudentName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || i.CourseName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || i.StudentEmail.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        loading = true;
+        try
+        {
+            if (CourseId != Guid.Empty)
+            {
+                inscripciones = await MaestroService.GetInscripcionesCursoAsync(CourseId);
+            }
+            else
+            {
+                inscripciones = await MaestroService.GetTodasMisInscripcionesAsync(AuthService.CurrentUser?.Id ?? Guid.Empty);
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally { loading = false; }
+    }
+}

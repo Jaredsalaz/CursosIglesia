@@ -163,7 +163,15 @@
         if (success)
         {
             await Task.Delay(1200);
-            NavigationManager.NavigateTo("/");
+
+            var redirectUrl = ViewModel.LastLoginRole switch
+            {
+                "SuperAdmin" => "/dashboard/admin",
+                "Maestro" => "/dashboard/maestro",
+                _ => "/"
+            };
+
+            NavigationManager.NavigateTo(redirectUrl);
         }
     }
 }

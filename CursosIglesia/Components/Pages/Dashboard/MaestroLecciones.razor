@@ -1,0 +1,504 @@
+@page "/dashboard/maestro/cursos/{CourseId:guid}/lecciones"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IAuthService AuthService
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+
+<!-- Actions Bar -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <a href="/dashboard/maestro/cursos" class="dash-btn dash-btn-outline dash-btn-sm">
+        <i class="bi bi-arrow-left"></i> Volver a Cursos
+    </a>
+    <button class="dash-btn dash-btn-primary" @onclick="() => OpenCreateModal()">
+        <i class="bi bi-plus-lg"></i> Nueva Lección
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<!-- Lessons List -->
+<div class="dash-panel" style="background: transparent; box-shadow: none;">
+    <div class="dash-panel-header" style="background: var(--dash-panel-bg); border-radius: 12px; margin-bottom: 20px; box-shadow: var(--dash-shadow);">
+        <span class="dash-panel-title"><i class="bi bi-list-check"></i> Módulos del Curso</span>
+        <span class="dash-badge dash-badge-gold">@lessons.Count módulos</span>
+    </div>
+
+    @if (loading)
+    {
+        <div class="dash-loading"><div class="dash-spinner"></div></div>
+    }
+    else if (lessons.Any())
+    {
+        <div class="lessons-accordion">
+            @foreach (var l in lessons.OrderBy(x => x.Order))
+            {
+                <div class="lesson-card" style="background:var(--dash-panel-bg); border-radius:12px; margin-bottom:15px; box-shadow:var(--dash-shadow); overflow:hidden;">
+                    <!-- Lesson Header -->
+                    <div class="lesson-header" style="padding:15px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-bottom: @(expandedLessons.Contains(l.Id) ? "1px solid var(--dash-border)" : "none")" @onclick="() => ToggleLessonAccordion(l.Id)">
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <span class="dash-badge dash-badge-gold" style="font-size:1rem; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">@l.Order</span>
+                            <div>
+                                <div style="font-weight:600; font-size:1.1rem; color:var(--dash-text);">@l.Title</div>
+                                @if (!string.IsNullOrEmpty(l.Description))
+                                {
+                                    <div style="font-size:0.85rem; color:var(--dash-text-muted);">@l.Description</div>
+                                }
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:15px;" @onclick:stopPropagation="true">
+                            <span class="dash-badge dash-badge-info">
+                                <i class="bi bi-stack"></i> @(l.Topics?.Count ?? 0) Temas
+                            </span>
+                            <div style="display:flex; gap:5px;">
+                                <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenEditModal(l)" title="Editar Módulo">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => DeleteLesson(l.Id)" title="Eliminar Módulo">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => ToggleLessonAccordion(l.Id)" style="border:none;">
+                                    <i class="bi @(expandedLessons.Contains(l.Id) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Topics Body -->
+                    @if (expandedLessons.Contains(l.Id))
+                    {
+                        <div class="lesson-body" style="padding:20px; background: rgba(0,0,0,0.1);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                <h5 style="margin:0; font-size:1rem; color:var(--dash-text);"><i class="bi bi-bookmark-star me-2"></i>Contenido del Módulo</h5>
+                                <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => OpenTopicCreateModal(l.Id)">
+                                    <i class="bi bi-plus-lg"></i> Agregar Tema
+                                </button>
+                            </div>
+
+                            @if (l.Topics == null || !l.Topics.Any())
+                            {
+                                <div style="padding:20px; text-align:center; color:var(--dash-text-muted); border: 2px dashed var(--dash-border); border-radius:8px;">
+                                    <i class="bi bi-folder-x" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                                    Este módulo no tiene temas todavía. Apreta "Agregar Tema" para crear contenido.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="topics-list" style="display:flex; flex-direction:column; gap:10px;">
+                                    @foreach (var t in l.Topics.OrderBy(x => x.Order))
+                                    {
+                                        <div class="topic-item" style="background:var(--dash-panel-bg); border-left: 3px solid var(--color-primary); padding:10px 15px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+                                            <div style="display:flex; align-items:center; gap:15px;">
+                                                <i class="bi @GetTopicIcon(t.ContentType)" style="font-size:1.5rem; color:var(--dash-text-muted);"></i>
+                                                <div>
+                                                    <div style="font-weight:500; color:var(--dash-text);">@t.Title</div>
+                                                    <div style="font-size:0.8rem; color:var(--dash-text-muted);">
+                                                        <span class="me-3"><i class="bi bi-clock"></i> @t.DurationMinutes min</span>
+                                                        <span>@GetTopicTypeName(t.ContentType)</span>
+                                                        @if (t.IsFree) { <span class="ms-3 dash-badge dash-badge-success" style="font-size:0.6rem; padding:2px 5px;">GRATIS</span> }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style="display:flex; gap:5px;">
+                                                <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenTopicEditModal(t, l.Id)" title="Editar Tema">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => DeleteTopic(t.Id, l.Id)" title="Eliminar Tema">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="dash-empty" style="background:var(--dash-panel-bg); border-radius:12px;">
+            <i class="bi bi-list-check"></i>
+            <h4>Sin módulos aún</h4>
+            <p>Crea tu primer módulo (lección) para estructurar el curso</p>
+        </div>
+    }
+</div>
+
+<!-- LECCION Modal -->
+@if (showModal)
+{
+    <div class="dash-modal-backdrop" @onclick="() => showModal = false">
+        <div class="dash-modal" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title">
+                    <i class="bi @(isEditing ? "bi-pencil-square" : "bi-plus-circle")" style="color:var(--dash-accent)"></i>
+                    @(isEditing ? "Editar Módulo" : "Nuevo Módulo")
+                </span>
+                <button class="dash-modal-close" @onclick="() => showModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Título *</label>
+                    <input class="dash-form-input" @bind="currentLesson.Title" placeholder="Ej: Unidad 1: Bases del Cristianismo" />
+                </div>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Descripción</label>
+                    <textarea class="dash-form-textarea" @bind="currentLesson.Description" placeholder="Breve introducción de la unidad"></textarea>
+                </div>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Orden</label>
+                    <input class="dash-form-input" type="number" @bind="currentLesson.Order" />
+                </div>
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showModal = false">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="SaveLesson" disabled="@saving">
+                    @if (saving) { <span>Guardando...</span> }
+                    else { <span><i class="bi bi-check-lg"></i> @(isEditing ? "Actualizar" : "Crear")</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- TOPIC Modal -->
+@if (showTopicModal)
+{
+    <!-- Using a slightly wider modal for topic creation due to extra fields -->
+    <div class="dash-modal-backdrop" style="align-items:flex-start; padding-top:2rem; overflow-y:auto;" @onclick="() => showTopicModal = false">
+        <div class="dash-modal" style="width:100%; max-width:800px; margin:auto;" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title">
+                    <i class="bi @(isEditing ? "bi-pencil-square" : "bi-journal-plus")" style="color:var(--dash-accent)"></i>
+                    @(isEditing ? "Editar Tema" : "Agregar Nuevo Tema")
+                </span>
+                <button class="dash-modal-close" @onclick="() => showTopicModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                    <div>
+                        <div class="dash-form-group">
+                            <label class="dash-form-label">Título del Tema *</label>
+                            <input class="dash-form-input" @bind="currentTopic.Title" placeholder="Ej: Las raíces de la fe..." />
+                        </div>
+                        
+                        <div class="dash-form-group">
+                            <label class="dash-form-label">Tipo de Contenido *</label>
+                            <select class="dash-form-input" @bind="currentTopic.ContentType">
+                                @foreach (ContentType type in Enum.GetValues(typeof(ContentType)))
+                                {
+                                    <option value="@type">@GetTopicTypeName(type)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="dash-form-group">
+                            <label class="dash-form-label">Duración (minutos)</label>
+                            <input class="dash-form-input" type="number" @bind="currentTopic.DurationMinutes" />
+                        </div>
+                        
+                        <div class="dash-form-group">
+                            <label class="dash-form-label">Orden en el módulo</label>
+                            <input class="dash-form-input" type="number" @bind="currentTopic.Order" />
+                        </div>
+                        
+                        <div class="dash-form-group" style="margin-top:25px;">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" @bind="currentTopic.IsFree" style="width:20px; height:20px;" />
+                                <span style="font-weight:600; color:var(--dash-text)">Tema Gratis (Preview)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="border-color:var(--dash-border); margin:15px 0;"/>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Breve Descripción (Opcional)</label>
+                    <textarea class="dash-form-textarea" rows="2" @bind="currentTopic.Description" placeholder="De qué trata este tema..."></textarea>
+                </div>
+
+                <!-- Dynamic Content Area based on Type -->
+                @if (currentTopic.ContentType == ContentType.VideoExterno || currentTopic.ContentType == ContentType.ClaseVirtual || currentTopic.ContentType == ContentType.Archivo)
+                {
+                    <div class="dash-form-group p-3 mb-2" style="background:rgba(var(--color-primary-rgb), 0.1); border-radius:8px; border:1px solid rgba(var(--color-primary-rgb), 0.3);">
+                        <label class="dash-form-label">
+                            <i class="bi bi-link-45deg"></i> 
+                            @(currentTopic.ContentType == ContentType.VideoExterno ? "URL del Video (YouTube/Vimeo)" : 
+                              currentTopic.ContentType == ContentType.ClaseVirtual ? "Enlace de Zoom/Meet" : "URL del Archivo")
+                        </label>
+                        <input class="dash-form-input" @bind="currentTopic.ContentUrl" placeholder="https://..." />
+                    </div>
+                }
+
+                @if (currentTopic.ContentType == ContentType.Lectura || currentTopic.ContentType == ContentType.VideoExterno || currentTopic.ContentType == ContentType.VideoSubido)
+                {
+                     <div class="dash-form-group">
+                        <label class="dash-form-label"><i class="bi bi-textarea-t"></i> Contenido principal (HTML / Texto Múltiple)</label>
+                        <textarea class="dash-form-textarea" rows="6" @bind="currentTopic.TextContent" placeholder="Escribe el material de lectura o el contenido de la clase aquí..."></textarea>
+                    </div>
+                }
+                else if (currentTopic.ContentType == ContentType.Test)
+                {
+                    <div class="dash-form-group">
+                        <label class="dash-form-label"><i class="bi bi-braces"></i> IDs de Preguntas o Configuración JSON (Avanzado)</label>
+                        <textarea class="dash-form-textarea" rows="4" @bind="currentTopic.TextContent" placeholder="[101, 102, 105]"></textarea>
+                    </div>
+                }
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showTopicModal = false">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="SaveTopic" disabled="@saving">
+                    @if (saving) { <span>Guardando...</span> }
+                    else { <span><i class="bi bi-check-lg"></i> @(isEditing ? "Actualizar Tema" : "Crear Tema")</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid CourseId { get; set; }
+
+    private List<Lesson> lessons = new();
+    private HashSet<Guid> expandedLessons = new();
+    
+    private bool loading = true, showModal = false, showTopicModal = false, saving = false, isEditing = false;
+    private string alertMessage = "", alertClass = "", alertIcon = "";
+    
+    private CreateLessonRequest currentLesson = new();
+    private Guid? editingLessonId;
+
+    private CreateTemaRequest currentTopic = new();
+    private Guid? editingTopicId;
+    private Guid currentModifyingLessonId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLessons();
+    }
+
+    private async Task LoadLessons()
+    {
+        loading = true;
+        try 
+        { 
+            lessons = await MaestroService.GetLeccionesCursoAsync(CourseId); 
+            // Si la lista de Temas en la DB de Lesson viene nula (por no incluir MultiMapping dapper), inicializamos a vacía
+            foreach(var l in lessons) {
+                if (l.Topics == null) l.Topics = new List<Tema>();
+            }
+            // Optional: If you want to automatically load topics for ALL lessons upfront, uncomment next lines:
+            // foreach(var l in lessons) {
+            //    l.Topics = await MaestroService.GetTemasLeccionAsync(l.Id);
+            // }
+            // But doing it lazily on Accordion click is faster.
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { loading = false; }
+    }
+
+    // --- ACCORDION LOGIC ---
+    private async Task ToggleLessonAccordion(Guid lessonId)
+    {
+        if (expandedLessons.Contains(lessonId))
+        {
+            expandedLessons.Remove(lessonId);
+        }
+        else
+        {
+            expandedLessons.Add(lessonId);
+            var lesson = lessons.FirstOrDefault(l => l.Id == lessonId);
+            if (lesson != null && (lesson.Topics == null || !lesson.Topics.Any())) 
+            {
+                // Load topics dynamically upon expand
+                lesson.Topics = await MaestroService.GetTemasLeccionAsync(lessonId);
+            }
+        }
+    }
+
+    // --- MODAL LECCION (MODULOS) ---
+    private void OpenCreateModal()
+    {
+        isEditing = false;
+        editingLessonId = null;
+        currentLesson = new CreateLessonRequest
+        {
+            CourseId = CourseId,
+            Order = lessons.Any() ? lessons.Max(l => l.Order) + 1 : 1
+        };
+        showModal = true;
+    }
+
+    private void OpenEditModal(Lesson lesson)
+    {
+        isEditing = true;
+        editingLessonId = lesson.Id;
+        currentLesson = new CreateLessonRequest
+        {
+            CourseId = CourseId,
+            Title = lesson.Title,
+            Description = lesson.Description,
+            Order = lesson.Order
+        };
+        showModal = true;
+    }
+
+    private async Task SaveLesson()
+    {
+        if (string.IsNullOrWhiteSpace(currentLesson.Title))
+        { ShowAlert("El título es obligatorio", "warning"); return; }
+
+        saving = true;
+        try
+        {
+            if (isEditing && editingLessonId.HasValue)
+            {
+                var result = await MaestroService.ActualizarLeccionAsync(editingLessonId.Value, currentLesson);
+                ShowAlert(result.Success ? "Módulo actualizado" : result.Message, result.Success ? "success" : "danger");
+            }
+            else
+            {
+                var userId = AuthService.CurrentUser?.Id ?? Guid.Empty;
+                var result = await MaestroService.CrearLeccionAsync(userId, currentLesson);
+                ShowAlert(result.Success ? "Módulo creado" : result.Message, result.Success ? "success" : "danger");
+            }
+            showModal = false;
+            await LoadLessons();
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private async Task DeleteLesson(Guid lessonId)
+    {
+        try
+        {
+            var result = await MaestroService.EliminarLeccionAsync(lessonId);
+            ShowAlert(result.Success ? "Módulo eliminado" : result.Message, result.Success ? "success" : "danger");
+            await LoadLessons();
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+    }
+
+    // --- MODAL TOPICS (TEMAS) ---
+    private void OpenTopicCreateModal(Guid lessonId)
+    {
+        var lesson = lessons.FirstOrDefault(l => l.Id == lessonId);
+        isEditing = false;
+        editingTopicId = null;
+        currentModifyingLessonId = lessonId;
+        currentTopic = new CreateTemaRequest
+        {
+            LessonId = lessonId,
+            ContentType = ContentType.Lectura,
+            Order = (lesson?.Topics?.Any() == true) ? lesson.Topics.Max(t => t.Order) + 1 : 1
+        };
+        showTopicModal = true;
+    }
+
+    private void OpenTopicEditModal(Tema topic, Guid lessonId)
+    {
+        isEditing = true;
+        editingTopicId = topic.Id;
+        currentModifyingLessonId = lessonId;
+        currentTopic = new CreateTemaRequest
+        {
+            LessonId = lessonId,
+            Title = topic.Title,
+            Description = topic.Description,
+            ContentType = topic.ContentType,
+            TextContent = topic.TextContent,
+            ContentUrl = topic.ContentUrl,
+            DurationMinutes = topic.DurationMinutes,
+            Order = topic.Order,
+            IsFree = topic.IsFree
+        };
+        showTopicModal = true;
+    }
+
+    private async Task SaveTopic()
+    {
+        if (string.IsNullOrWhiteSpace(currentTopic.Title))
+        { ShowAlert("El título del tema es obligatorio", "warning"); return; }
+
+        saving = true;
+        try
+        {
+            if (isEditing && editingTopicId.HasValue)
+            {
+                var result = await MaestroService.ActualizarTemaAsync(editingTopicId.Value, currentTopic);
+                ShowAlert(result.Success ? "Tema actualizado" : result.Message, result.Success ? "success" : "danger");
+            }
+            else
+            {
+                var result = await MaestroService.CrearTemaAsync(currentModifyingLessonId, currentTopic);
+                ShowAlert(result.Success ? "Tema creado" : result.Message, result.Success ? "success" : "danger");
+            }
+            showTopicModal = false;
+            
+            // Reload just the topics for this lesson
+            var lessonToUpdate = lessons.FirstOrDefault(l => l.Id == currentModifyingLessonId);
+            if (lessonToUpdate != null) {
+                lessonToUpdate.Topics = await MaestroService.GetTemasLeccionAsync(currentModifyingLessonId);
+            }
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private async Task DeleteTopic(Guid topicId, Guid lessonId)
+    {
+        try
+        {
+            var result = await MaestroService.EliminarTemaAsync(topicId);
+            ShowAlert(result.Success ? "Tema eliminado" : result.Message, result.Success ? "success" : "danger");
+            
+            var lessonToUpdate = lessons.FirstOrDefault(l => l.Id == lessonId);
+            if (lessonToUpdate != null) {
+                lessonToUpdate.Topics = await MaestroService.GetTemasLeccionAsync(lessonId);
+            }
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+    }
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertClass = $"dash-alert-{type}";
+        alertIcon = type == "success" ? "bi-check-circle" : type == "danger" ? "bi-exclamation-circle" : "bi-exclamation-triangle";
+    }
+
+    // Helpers UI Mappers
+    private string GetTopicIcon(ContentType type) => type switch
+    {
+        ContentType.VideoSubido => "bi-cast",
+        ContentType.VideoExterno => "bi-youtube",
+        ContentType.Lectura => "bi-file-earmark-text",
+        ContentType.Test => "bi-ui-checks",
+        ContentType.Archivo => "bi-file-earmark-pdf",
+        ContentType.ClaseVirtual => "bi-camera-video",
+        _ => "bi-file-text"
+    };
+
+    private string GetTopicTypeName(ContentType type) => type switch
+    {
+        ContentType.VideoSubido => "Video Grabado",
+        ContentType.VideoExterno => "Video URL",
+        ContentType.Lectura => "Texto / Lectura",
+        ContentType.Test => "Práctica / Cuestionario",
+        ContentType.Archivo => "Archivo (PDF/Doc)",
+        ContentType.ClaseVirtual => "Reunión Virtual (Zoom)",
+        _ => "Otro recurso"
+    };
+}

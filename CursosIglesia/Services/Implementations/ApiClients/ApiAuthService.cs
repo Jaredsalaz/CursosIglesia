@@ -12,6 +12,7 @@ public class ApiAuthService : IAuthService
     private readonly HttpClient _httpClient;
     private readonly ILocalStorageService _localStorage;
     private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly InMemoryTokenStore _tokenStore;
     public UserProfile? CurrentUser { get; private set; }
     public bool IsAuthenticated => CurrentUser != null;
     public event Action? OnAuthStateChanged;
@@ -23,6 +24,13 @@ public class ApiAuthService : IAuthService
         
         try
         {
+            var token = await _localStorage.GetItemAsync<string>("authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                _tokenStore.Token = token;
+                ((CustomAuthenticationStateProvider)_authStateProvider).NotifyUserAuthentication(token);
+            }
+
             var profile = await _localStorage.GetItemAsync<UserProfile>("userProfile");
             if (profile != null)
             {
@@ -40,11 +48,12 @@ public class ApiAuthService : IAuthService
         }
     }
 
-    public ApiAuthService(HttpClient httpClient, ILocalStorageService localStorage, AuthenticationStateProvider authStateProvider)
+    public ApiAuthService(HttpClient httpClient, ILocalStorageService localStorage, AuthenticationStateProvider authStateProvider, InMemoryTokenStore tokenStore)
     {
         _httpClient = httpClient;
         _localStorage = localStorage;
         _authStateProvider = authStateProvider;
+        _tokenStore = tokenStore;
     }
 
     private void NotifyStateChange() => OnAuthStateChanged?.Invoke();
@@ -58,25 +67,19 @@ public class ApiAuthService : IAuthService
             
             if (result?.Success == true && !string.IsNullOrEmpty(result.Token))
             {
-                Console.WriteLine($"[ApiAuthService] Login successful, storing token in localStorage");
+                // Store in memory for HttpClient handlers (no JS interop needed)
+                _tokenStore.Token = result.Token;
                 
-                // Store token first
+                // Store in localStorage for persistence across page reloads
                 await _localStorage.SetItemAsync("authToken", result.Token);
-                Console.WriteLine($"[ApiAuthService] ✅ authToken stored");
-                
-                // Store profile
                 await _localStorage.SetItemAsync("userProfile", result.Profile);
-                Console.WriteLine($"[ApiAuthService] ✅ userProfile stored");
                 
-                // Small delay to ensure localStorage is persisted
                 await Task.Delay(100);
-                Console.WriteLine($"[ApiAuthService] Delay completed, updating auth state");
                 
                 // Update auth state
                 ((CustomAuthenticationStateProvider)_authStateProvider).NotifyUserAuthentication(result.Token);
                 CurrentUser = result.Profile;
                 NotifyStateChange();
-                Console.WriteLine($"[ApiAuthService] ✅ Auth state updated");
                 
                 // Verify token is in localStorage
                 var verifyToken = await _localStorage.GetItemAsync<string>("authToken");
@@ -99,6 +102,7 @@ public class ApiAuthService : IAuthService
 
         if (result?.Success == true && !string.IsNullOrEmpty(result.Token))
         {
+            _tokenStore.Token = result.Token;
             await _localStorage.SetItemAsync("authToken", result.Token);
             await _localStorage.SetItemAsync("userProfile", result.Profile);
             ((CustomAuthenticationStateProvider)_authStateProvider).NotifyUserAuthentication(result.Token);
@@ -111,6 +115,7 @@ public class ApiAuthService : IAuthService
 
     public async Task LogoutAsync()
     {
+        _tokenStore.Clear();
         await _localStorage.RemoveItemAsync("authToken");
         await _localStorage.RemoveItemAsync("userProfile");
         ((CustomAuthenticationStateProvider)_authStateProvider).NotifyUserLogout();

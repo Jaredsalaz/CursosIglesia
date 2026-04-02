@@ -1,0 +1,197 @@
+@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components.Authorization
+
+<link rel="stylesheet" href="css/dashboard.css" />
+
+<div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <aside class="dashboard-sidebar @(sidebarCollapsed ? "collapsed" : "") @(sidebarOpen ? "open" : "")">
+        <div class="sidebar-brand">
+            <i class="bi bi-cross brand-icon"></i>
+            <span class="brand-text">Cursos Católicos</span>
+        </div>
+
+        <div class="sidebar-role-badge">
+            @if (userRole == "SuperAdmin")
+            {
+                <span class="role-tag superadmin"><i class="bi bi-shield-check"></i> Super Admin</span>
+            }
+            else
+            {
+                <span class="role-tag maestro"><i class="bi bi-mortarboard"></i> Maestro</span>
+            }
+        </div>
+
+        <nav class="sidebar-nav">
+            @if (userRole == "SuperAdmin")
+            {
+                <div class="sidebar-section-title">Panel de Control</div>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin")" href="/dashboard/admin">
+                    <i class="bi bi-speedometer2"></i><span>Métricas</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin/maestros")" href="/dashboard/admin/maestros">
+                    <i class="bi bi-people"></i><span>Maestros</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin/categorias")" href="/dashboard/admin/categorias">
+                    <i class="bi bi-tags"></i><span>Categorías</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin/cursos")" href="/dashboard/admin/cursos">
+                    <i class="bi bi-journal-bookmark"></i><span>Cursos</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin/inscripciones")" href="/dashboard/admin/inscripciones">
+                    <i class="bi bi-person-lines-fill"></i><span>Inscripciones</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/admin/documentos")" href="/dashboard/admin/documentos">
+                    <i class="bi bi-file-earmark-text"></i><span>Documentos</span>
+                </a>
+            }
+            else
+            {
+                <div class="sidebar-section-title">Mi Panel</div>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro")" href="/dashboard/maestro">
+                    <i class="bi bi-speedometer2"></i><span>Inicio</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/cursos")" href="/dashboard/maestro/cursos">
+                    <i class="bi bi-journal-bookmark"></i><span>Mis Cursos</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/inscripciones")" href="/dashboard/maestro/inscripciones">
+                    <i class="bi bi-person-lines-fill"></i><span>Inscripciones</span>
+                </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/documentos")" href="/dashboard/maestro/documentos">
+                    <i class="bi bi-file-earmark-text"></i><span>Documentos</span>
+                </a>
+            }
+
+            <div class="sidebar-section-title">General</div>
+            <a class="sidebar-nav-item" href="/">
+                <i class="bi bi-house"></i><span>Ir al Sitio</span>
+            </a>
+            <a class="sidebar-nav-item" @onclick="Logout" style="cursor:pointer">
+                <i class="bi bi-box-arrow-right"></i><span>Cerrar Sesión</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    @(AuthService.CurrentUser?.FirstName?.Length > 0 ? AuthService.CurrentUser.FirstName[0].ToString() : "?")
+                </div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">@(AuthService.CurrentUser?.FullName ?? "Usuario")</div>
+                    <div class="sidebar-user-email">@(AuthService.CurrentUser?.Email ?? "")</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="dashboard-main">
+        <header class="dashboard-topbar">
+            <div class="topbar-left">
+                <button class="topbar-toggle" @onclick="ToggleSidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+                <span class="topbar-title">@pageTitle</span>
+            </div>
+            <div class="topbar-right">
+                <button class="topbar-btn">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-dot"></span>
+                </button>
+                <button class="topbar-btn" @onclick="GoToProfile">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="dashboard-content">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool sidebarCollapsed = false;
+    private bool sidebarOpen = false;
+    private string userRole = "Estudiante";
+    private string pageTitle = "Dashboard";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        DetermineRole();
+        UpdatePageTitle();
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void DetermineRole()
+    {
+        // Try to get role from JWT claims
+        if (AuthService.CurrentUser != null)
+        {
+            // The role is stored in localStorage along with profile
+            // We'll check the JWT token claims via the auth state
+            userRole = "Maestro"; // Default for dashboard users
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdatePageTitle();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdatePageTitle()
+    {
+        var uri = Nav.ToBaseRelativePath(Nav.Uri).ToLower();
+        pageTitle = uri switch
+        {
+            "dashboard/admin" => "Panel de Control",
+            "dashboard/admin/maestros" => "Gestión de Maestros",
+            "dashboard/admin/categorias" => "Gestión de Categorías",
+            "dashboard/admin/cursos" => "Gestión de Cursos",
+            "dashboard/admin/inscripciones" => "Inscripciones",
+            "dashboard/admin/documentos" => "Documentos",
+            "dashboard/maestro" => "Mi Panel",
+            "dashboard/maestro/cursos" => "Mis Cursos",
+            "dashboard/maestro/inscripciones" => "Mis Inscripciones",
+            "dashboard/maestro/documentos" => "Mis Documentos",
+            _ => uri.Contains("lecciones") ? "Lecciones del Curso" : "Dashboard"
+        };
+
+        // Auto-detect role from URL
+        if (uri.StartsWith("dashboard/admin"))
+            userRole = "SuperAdmin";
+        else if (uri.StartsWith("dashboard/maestro"))
+            userRole = "Maestro";
+    }
+
+    private string ActiveClass(string href)
+    {
+        var currentUri = "/" + Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/');
+        return currentUri.Equals(href, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
+
+    private void GoToProfile()
+    {
+        Nav.NavigateTo("/perfil");
+    }
+
+    private void ToggleSidebar()
+    {
+        sidebarCollapsed = !sidebarCollapsed;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", true);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

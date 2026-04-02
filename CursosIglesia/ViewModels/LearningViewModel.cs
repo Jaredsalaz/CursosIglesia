@@ -31,6 +31,13 @@ public class LearningViewModel : ViewModelBase
         set => SetProperty(ref _currentLesson, value);
     }
 
+    private Tema? _currentTopic;
+    public Tema? CurrentTopic
+    {
+        get => _currentTopic;
+        set => SetProperty(ref _currentTopic, value);
+    }
+
     private bool _isCurrentLessonCompleted;
     public bool IsCurrentLessonCompleted
     {
@@ -113,8 +120,25 @@ public class LearningViewModel : ViewModelBase
 
         CurrentLesson = lesson;
         await _enrollmentService.SetCurrentLessonAsync(Course.Id, lessonId);
+        
+        // Auto-select first topic of the lesson
+        if (lesson.Topics != null && lesson.Topics.Any())
+        {
+            CurrentTopic = lesson.Topics.OrderBy(t => t.Order).First();
+        }
+        else
+        {
+            CurrentTopic = null;
+        }
+
         UpdateCurrentLessonStatus();
         NotifyProgressChanged();
+    }
+
+    public Task SelectTopicAsync(Tema topic)
+    {
+        CurrentTopic = topic;
+        return Task.CompletedTask;
     }
 
     public async Task CompleteCurrentLessonAsync()

@@ -5,9 +5,19 @@ namespace CursosIglesia.Services.Interfaces;
 
 public interface IMaestroService
 {
-    Task<List<Course>> GetMaestroCoursesAsync(Guid maestroId);
-    Task<Guid> CrearCursoAsync(Course course);
-    Task ActualizarCursoAsync(Course course);
-    Task SubirDocumentoAsync(TeacherDocument document);
-    Task<List<TeacherDocument>> GetDocumentosMaestroAsync(Guid maestroId);
+    Task<MaestroMetrics> GetMaestroMetricsAsync(Guid userId);
+    Task<List<Course>> GetMaestroCoursesAsync(Guid userId);
+    Task<List<Lesson>> GetLeccionesCursoAsync(Guid courseId);
+    Task<ApiResponse<Guid>> CrearLeccionAsync(Guid userId, CreateLessonRequest request);
+    Task<ApiResponse> ActualizarLeccionAsync(Guid lessonId, CreateLessonRequest request);
+    Task<ApiResponse> EliminarLeccionAsync(Guid lessonId);
+    Task<List<Tema>> GetTemasLeccionAsync(Guid lessonId);
+    Task<ApiResponse<Guid>> CrearTemaAsync(Guid lessonId, CreateTemaRequest request);
+    Task<ApiResponse> ActualizarTemaAsync(Guid temaId, CreateTemaRequest request);
+    Task<ApiResponse> EliminarTemaAsync(Guid temaId);
+
+    Task<List<EnrollmentDetail>> GetInscripcionesCursoAsync(Guid courseId);
+    Task<List<EnrollmentDetail>> GetTodasMisInscripcionesAsync(Guid userId);
+    Task<List<TeacherDocument>> GetDocumentosMaestroAsync(Guid userId);
+    Task<ApiResponse> SubirDocumentoAsync(Guid userId, TeacherDocument document);
 }

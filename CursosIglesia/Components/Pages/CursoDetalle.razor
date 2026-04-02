@@ -130,17 +130,30 @@ else
                                 <div class="lesson-number">@lesson.Order</div>
                                 <div class="lesson-info">
                                     <div class="lesson-title">@lesson.Title</div>
-                                    <div class="lesson-meta">
-                                        <span>
-                                            <i class="bi @GetLessonIcon(lesson.Type) me-1"></i>
-                                            @lesson.Type
-                                        </span>
-                                        <span><i class="bi bi-clock me-1"></i>@lesson.DurationMinutes min</span>
-                                        @if (lesson.IsFree)
-                                        {
-                                            <span class="lesson-badge">Vista previa</span>
-                                        }
-                                    </div>
+                                    @if (!string.IsNullOrEmpty(lesson.Description))
+                                    {
+                                        <div class="mt-1 mb-2" style="font-size:0.85rem;color:var(--color-text-muted)">@lesson.Description</div>
+                                    }
+                                    
+                                    @if (lesson.Topics != null && lesson.Topics.Any())
+                                    {
+                                        <div class="ps-3 border-start mt-2">
+                                            @foreach (var topic in lesson.Topics.OrderBy(t => t.Order))
+                                            {
+                                                <div class="lesson-meta mb-2">
+                                                    <span style="color:var(--color-text); font-weight:500;">
+                                                        <i class="bi @GetTopicIcon(topic.ContentType) me-1" style="color:var(--color-secondary)"></i>
+                                                        @topic.Title
+                                                    </span>
+                                                    <span><i class="bi bi-clock me-1"></i>@topic.DurationMinutes min</span>
+                                                    @if (topic.IsFree)
+                                                    {
+                                                        <span class="lesson-badge">Vista previa</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         }
@@ -274,12 +287,14 @@ else
         await ViewModel.LoadCourseAsync(CourseId);
     }
 
-    private string GetLessonIcon(LessonType type) => type switch
+    private string GetTopicIcon(ContentType type) => type switch
     {
-        LessonType.Video => "bi-play-circle",
-        LessonType.Lectura => "bi-book",
-        LessonType.Cuestionario => "bi-question-circle",
-        LessonType.Actividad => "bi-pencil-square",
+        ContentType.VideoSubido => "bi-play-circle",
+        ContentType.VideoExterno => "bi-youtube",
+        ContentType.Lectura => "bi-book",
+        ContentType.Test => "bi-card-checklist",
+        ContentType.Archivo => "bi-file-earmark-pdf",
+        ContentType.ClaseVirtual => "bi-camera-video",
         _ => "bi-file-text"
     };
 

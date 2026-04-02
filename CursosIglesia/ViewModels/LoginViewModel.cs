@@ -39,11 +39,14 @@ public class LoginViewModel : ViewModelBase
 
     public void TogglePassword() => ShowPassword = !ShowPassword;
 
+    public string? LastLoginRole { get; private set; }
+
     public async Task<bool> LoginAsync()
     {
         ErrorMessage = null;
         SuccessMessage = null;
         IsSubmitting = true;
+        LastLoginRole = null;
 
         try
         {
@@ -57,6 +60,7 @@ public class LoginViewModel : ViewModelBase
 
             if (result.Success)
             {
+                LastLoginRole = result.Role;
                 SuccessMessage = $"¡Bienvenido, {result.Profile?.FirstName}! Redirigiendo...";
                 return true;
             }

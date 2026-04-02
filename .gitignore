@@ -124,3 +124,21 @@ TestResults/
 
 ## Scaffolding
 ScaffoldingReadMe.txt
+
+## Custom Exclusions
+*.docx
+*.sql
+!migrate_lms_schema.sql
+!usp_maestro_utf8.sql
+temp_sp.txt
+temp_sp.sql
+create_test_users.sql
+dashboard_stored_procedures.sql
+migrate_final.sql
+update_login_sp.sql
+usp_maestro.sql
+usp_maestro_converted.sql
+usp_temas.sql
+CursosIglesiaAPI/uploads/*
+!CursosIglesiaAPI/uploads/.gitkeep
+

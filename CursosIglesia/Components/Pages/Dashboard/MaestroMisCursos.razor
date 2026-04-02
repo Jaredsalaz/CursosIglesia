@@ -1,0 +1,79 @@
+@page "/dashboard/maestro/cursos"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IAuthService AuthService
+@using CursosIglesia.Models
+
+<div class="course-grid">
+    @if (loading)
+    {
+        <div class="dash-loading" style="grid-column:1/-1;"><div class="dash-spinner"></div></div>
+    }
+    else if (courses.Any())
+    {
+        @foreach (var c in courses)
+        {
+            <div class="course-dash-card">
+                <div class="course-dash-card-img">
+                    @if (!string.IsNullOrEmpty(c.ImageUrl))
+                    {
+                        <img src="@c.ImageUrl" alt="@c.Title" />
+                    }
+                    else
+                    {
+                        <i class="bi bi-book"></i>
+                    }
+                </div>
+                <div class="course-dash-card-body">
+                    <div class="course-dash-card-title">@c.Title</div>
+                    <div style="font-size:0.82rem; color:var(--dash-text-muted);">@c.CategoryName</div>
+                    <div style="font-size:0.78rem; color:var(--dash-text-muted); margin-top:4px;">
+                        @(c.ShortDescription.Length > 80 ? c.ShortDescription[..80] + "..." : c.ShortDescription)
+                    </div>
+                    <div class="course-dash-card-stats">
+                        <span><i class="bi bi-people"></i> @c.StudentsEnrolled alumnos</span>
+                        <span><i class="bi bi-list-check"></i> @c.LessonsCount lecciones</span>
+                        <span><i class="bi bi-clock"></i> @c.DurationHours hrs</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                        @if (c.IsFree) { <span class="dash-badge dash-badge-success">Gratis</span> }
+                        else { <span class="dash-badge dash-badge-gold">$@c.Price.ToString("N2")</span> }
+                        <span class="dash-badge dash-badge-info" style="margin-left:4px">@c.Difficulty</span>
+                    </div>
+                </div>
+                <div class="course-dash-card-actions">
+                    <a href="/dashboard/maestro/cursos/@c.Id/lecciones" class="dash-btn dash-btn-primary dash-btn-sm" style="flex:1; justify-content:center;">
+                        <i class="bi bi-list-check"></i> Lecciones
+                    </a>
+                    <a href="/dashboard/maestro/cursos/@c.Id/inscripciones" class="dash-btn dash-btn-outline dash-btn-sm" style="flex:1; justify-content:center;">
+                        <i class="bi bi-people"></i> Alumnos
+                    </a>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="dash-empty" style="grid-column:1/-1;">
+            <i class="bi bi-journal-bookmark"></i>
+            <h4>No tienes cursos asignados</h4>
+            <p>El Super Admin se encargará de asignarte cursos. Mientras tanto, puedes preparar tus documentos.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Course> courses = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        try
+        {
+            courses = await MaestroService.GetMaestroCoursesAsync(AuthService.CurrentUser?.Id ?? Guid.Empty);
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally { loading = false; }
+    }
+}

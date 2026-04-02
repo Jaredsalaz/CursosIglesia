@@ -16,37 +16,65 @@ public class ApiCourseService : ICourseService
 
     public async Task<List<Course>> GetAllCoursesAsync()
     {
-        return await _httpClient.GetFromJsonAsync<List<Course>>("api/courses") ?? new();
+        var courses = await _httpClient.GetFromJsonAsync<List<Course>>("api/courses") ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
     }
 
     public async Task<List<Course>> GetFeaturedCoursesAsync()
     {
-        return await _httpClient.GetFromJsonAsync<List<Course>>("api/courses/featured") ?? new();
+        var courses = await _httpClient.GetFromJsonAsync<List<Course>>("api/courses/featured") ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
     }
 
     public async Task<List<Course>> GetCoursesByCategoryAsync(Guid categoryId)
     {
-        return await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/category/{categoryId}") ?? new();
+        var courses = await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/category/{categoryId}") ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
     }
 
     public async Task<List<Course>> SearchCoursesAsync(CourseSearchRequest request)
     {
         var response = await _httpClient.PostAsJsonAsync("api/courses/search", request);
-        return await response.Content.ReadFromJsonAsync<List<Course>>() ?? new();
+        var courses = await response.Content.ReadFromJsonAsync<List<Course>>() ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
     }
 
     public async Task<Course?> GetCourseByIdAsync(Guid id)
     {
-        return await _httpClient.GetFromJsonAsync<Course>($"api/courses/{id}");
+        var course = await _httpClient.GetFromJsonAsync<Course>($"api/courses/{id}");
+        if (course != null) FixUrls(course);
+        return course;
     }
 
     public async Task<List<Course>> GetPopularCoursesAsync(int count = 6)
     {
-        return await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/popular/{count}") ?? new();
+        var courses = await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/popular/{count}") ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
     }
 
     public async Task<List<Course>> GetRecentCoursesAsync(int count = 6)
     {
-        return await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/recent/{count}") ?? new();
+        var courses = await _httpClient.GetFromJsonAsync<List<Course>>($"api/courses/recent/{count}") ?? new();
+        courses.ForEach(FixUrls);
+        return courses;
+    }
+    
+    // Helper to map relative URLs to absolute
+    private void FixUrls(Course course)
+    {
+        if (course == null) return;
+        var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            if (!string.IsNullOrEmpty(course.ImageUrl) && course.ImageUrl.StartsWith("/"))
+                course.ImageUrl = baseUrl + course.ImageUrl;
+            if (!string.IsNullOrEmpty(course.InstructorImageUrl) && course.InstructorImageUrl.StartsWith("/"))
+                course.InstructorImageUrl = baseUrl + course.InstructorImageUrl;
+        }
     }
 }

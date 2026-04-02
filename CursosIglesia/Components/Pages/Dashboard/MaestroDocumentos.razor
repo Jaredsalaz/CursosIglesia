@@ -1,0 +1,173 @@
+@page "/dashboard/maestro/documentos"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IAuthService AuthService
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div class="dash-search" style="flex:1; max-width:400px; margin-bottom:0;">
+        <i class="bi bi-search"></i>
+        <input type="text" placeholder="Buscar documento..." @bind="searchTerm" @bind:event="oninput" />
+    </div>
+    <button class="dash-btn dash-btn-primary" @onclick="() => showModal = true">
+        <i class="bi bi-upload"></i> Subir Documento
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<div class="dash-panel">
+    <div class="dash-panel-body" style="padding:0;">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (filtered.Any())
+        {
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Tipo</th>
+                        <th>Curso Asociado</th>
+                        <th>Fecha Subida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in filtered)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <i class="bi @GetFileIcon(d.TipoDocumento)" style="font-size:1.3rem; color:var(--dash-accent);"></i>
+                                    <span style="font-weight:600;">@d.NombreArchivo</span>
+                                </div>
+                            </td>
+                            <td><span class="dash-badge dash-badge-info">@d.TipoDocumento</span></td>
+                            <td>@d.NombreCursoAsociado</td>
+                            <td style="font-size:0.82rem; color:var(--dash-text-muted);">@d.FechaSubida.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-file-earmark-text"></i>
+                <h4>No tienes documentos</h4>
+                <p>Sube tu primer documento con el botón superior</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Upload Document Modal -->
+@if (showModal)
+{
+    <div class="dash-modal-backdrop" @onclick="() => showModal = false">
+        <div class="dash-modal" style="max-width:480px;" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title"><i class="bi bi-upload" style="color:var(--dash-accent)"></i> Subir Documento</span>
+                <button class="dash-modal-close" @onclick="() => showModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Nombre del Archivo *</label>
+                    <input class="dash-form-input" @bind="newDoc.NombreArchivo" placeholder="Ej: Guía del Catecismo.pdf" />
+                </div>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">URL del Archivo *</label>
+                    <input class="dash-form-input" @bind="newDoc.UrlArchivo" placeholder="https://..." />
+                </div>
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Tipo de Documento</label>
+                    <select class="dash-form-select" @bind="newDoc.TipoDocumento">
+                        <option value="PDF">PDF</option>
+                        <option value="Imagen">Imagen</option>
+                        <option value="Video">Video</option>
+                        <option value="Presentacion">Presentación</option>
+                        <option value="Documento">Documento Word</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showModal = false">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="UploadDocument" disabled="@saving">
+                    @if (saving) { <span>Subiendo...</span> } else { <span><i class="bi bi-upload"></i> Subir</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TeacherDocument> documentos = new();
+    private bool loading = true, showModal = false, saving = false;
+    private string searchTerm = "", alertMessage = "", alertClass = "", alertIcon = "";
+    private TeacherDocument newDoc = new() { TipoDocumento = "PDF" };
+
+    private IEnumerable<TeacherDocument> filtered => string.IsNullOrWhiteSpace(searchTerm)
+        ? documentos
+        : documentos.Where(d => d.NombreArchivo.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        loading = true;
+        try { documentos = await MaestroService.GetDocumentosMaestroAsync(AuthService.CurrentUser?.Id ?? Guid.Empty); }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { loading = false; }
+    }
+
+    private async Task UploadDocument()
+    {
+        if (string.IsNullOrWhiteSpace(newDoc.NombreArchivo) || string.IsNullOrWhiteSpace(newDoc.UrlArchivo))
+        { ShowAlert("Nombre y URL son requeridos", "warning"); return; }
+
+        saving = true;
+        try
+        {
+            var result = await MaestroService.SubirDocumentoAsync(AuthService.CurrentUser?.Id ?? Guid.Empty, newDoc);
+            if (result.Success)
+            {
+                ShowAlert("Documento subido exitosamente", "success");
+                showModal = false;
+                newDoc = new() { TipoDocumento = "PDF" };
+                await LoadDocuments();
+            }
+            else ShowAlert(result.Message, "danger");
+        }
+        catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private string GetFileIcon(string tipo) => tipo?.ToLower() switch
+    {
+        "pdf" => "bi-file-earmark-pdf",
+        "imagen" => "bi-file-earmark-image",
+        "video" => "bi-file-earmark-play",
+        "presentacion" => "bi-file-earmark-slides",
+        "documento" => "bi-file-earmark-word",
+        _ => "bi-file-earmark"
+    };
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertClass = $"dash-alert-{type}";
+        alertIcon = type == "success" ? "bi-check-circle" : type == "danger" ? "bi-exclamation-circle" : "bi-exclamation-triangle";
+    }
+}

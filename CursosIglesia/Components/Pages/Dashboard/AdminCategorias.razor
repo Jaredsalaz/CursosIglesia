@@ -1,0 +1,352 @@
+@page "/dashboard/admin/categorias"
+@using CursosIglesia.Models.DTOs
+@using CursosIglesia.Services.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@attribute [Authorize(Roles = "SuperAdmin")]
+@inject IAdminService AdminService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<!-- Actions Bar -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div class="dash-search" style="flex:1; max-width:400px; margin-bottom:0;">
+        <i class="bi bi-search"></i>
+        <input type="text" placeholder="Buscar categoría..." @bind="searchTerm" @bind:event="oninput" />
+    </div>
+    <button class="dash-btn dash-btn-primary" @onclick="AbrirModalCrear">
+        <i class="bi bi-plus-lg"></i> Nueva Categoría
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<!-- Categories Table -->
+<div class="dash-panel">
+    <div class="dash-panel-body" style="padding:0;">
+        @if (loading)
+        {
+            <div class="dash-loading"><div class="dash-spinner"></div></div>
+        }
+        else if (filteredCategorias.Any())
+        {
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Ícono ID</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cat in filteredCategorias)
+                    {
+                        <tr>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    @if (!string.IsNullOrEmpty(cat.ImageUrl))
+                                    {
+                                        <img src="@(apiBaseUrl + cat.ImageUrl)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" />
+                                    }
+                                    else
+                                    {
+                                        <div style="width: 40px; height: 40px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                                            <i class="@cat.Icon text-muted"></i>
+                                        </div>
+                                    }
+                                    <div style="font-weight:600;">@cat.Name</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size:0.85rem; color:var(--dash-text-muted); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    @(string.IsNullOrEmpty(cat.Description) ? "Sin descripción" : cat.Description)
+                                </div>
+                            </td>
+                            <td>
+                                <span class="dash-badge dash-badge-info"><i class="@cat.Icon" style="margin-right: 4px;"></i> @cat.Icon</span>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => AbrirModalEditar(cat)" title="Editar Categoría">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" style="color:red; border-color:red;" @onclick="() => EliminarCategoria(cat.Id)" title="Eliminar Categoría">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="dash-empty">
+                <i class="bi bi-tags"></i>
+                <h4>No se encontraron categorías</h4>
+                <p>Crea una nueva categoría usando el botón superior</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Crear/Editar -->
+@if (mostrarModal)
+{
+    <div class="dash-modal-backdrop" @onclick="CerrarModal">
+        <div class="dash-modal" style="max-width: 500px;" @onclick:stopPropagation="true">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title">
+                    <i class="bi bi-tag" style="color:var(--dash-accent)"></i> 
+                    @(esEdicion ? "Editar Categoría" : "Nueva Categoría")
+                </span>
+                <button class="dash-modal-close" @onclick="CerrarModal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Nombre de la Categoría *</label>
+                    <input class="dash-form-input" @bind="categoriaActual.Nombre" placeholder="Ej: Teología" />
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Descripción</label>
+                    <textarea class="dash-form-textarea" @bind="categoriaActual.Descripcion" rows="3" placeholder="Descripción breve de la categoría"></textarea>
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Selecciona un Ícono Representativo</label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; margin-top: 5px; max-height: 150px; overflow-y: auto; padding: 4px;">
+                        @foreach (var icono in availableIcons)
+                        {
+                            <div @onclick="() => categoriaActual.Icono = icono" 
+                                 style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; border-radius: 6px; border: 2px solid @(categoriaActual.Icono == icono ? "var(--dash-accent)" : "var(--dash-border)"); background: @(categoriaActual.Icono == icono ? "rgba(var(--dash-accent-rgb), 0.1)" : "transparent"); transition: all 0.2s;"
+                                 title="@icono">
+                                <i class="@icono" style="color: @(categoriaActual.Icono == icono ? "var(--dash-accent)" : "inherit");"></i>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Imagen de la Categoría</label>
+                    @if (!string.IsNullOrEmpty(categoriaActual.ImagenUrl))
+                    {
+                        <div style="margin-bottom: 10px; position: relative; display: inline-block;">
+                            <img src="@(apiBaseUrl + categoriaActual.ImagenUrl)" style="height: 100px; border-radius: 8px; object-fit: cover;" />
+                            <button type="button" @onclick="() => categoriaActual.ImagenUrl = null" style="position: absolute; top: 5px; right: 5px; background: white; border: none; border-radius: 50%; padding: 4px; cursor: pointer; color: red;">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>
+                    }
+                    
+                    <InputFile class="dash-form-input" OnChange="SubirImagen" accept=".jpg,.jpeg,.png,.webp" />
+                    
+                    @if (subiendoImagen)
+                    {
+                        <small style="color: var(--dash-accent); display: block; margin-top: 5px;">
+                            <i class="bi bi-hourglass-split"></i> Subiendo imagen...
+                        </small>
+                    }
+                </div>
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="CerrarModal">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="GuardarCategoria" disabled="@(string.IsNullOrWhiteSpace(categoriaActual.Nombre) || guardando || subiendoImagen)">
+                    @if (guardando) { <span>Guardando...</span> } else { <span><i class="bi bi-check-lg"></i> Guardar</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Category> categorias = new();
+    private bool loading = true;
+    
+    private bool mostrarModal = false;
+    private bool esEdicion = false;
+    private Guid idEdicion;
+    private CreateCategoryRequest categoriaActual = new();
+    private bool guardando = false;
+    
+    private string searchTerm = "";
+    private string alertMessage = "", alertClass = "", alertIcon = "";
+    
+    private bool subiendoImagen = false;
+    private string apiBaseUrl = "";
+
+    private List<string> availableIcons = new()
+    {
+        "bi-book", "bi-journal-bookmark", "bi-laptop", "bi-globe", "bi-heart",
+        "bi-star", "bi-shield-check", "bi-music-note", "bi-camera", "bi-briefcase",
+        "bi-chat-dots", "bi-cup-hot", "bi-people", "bi-person-workspace", "bi-lightning",
+        "bi-trophy", "bi-file-earmark-text", "bi-pen", "bi-palette", "bi-calculator",
+        "bi-cross", "bi-peace", "bi-sun", "bi-moon-stars", "bi-water", "bi-fire"
+    };
+
+    private IEnumerable<Category> filteredCategorias => string.IsNullOrWhiteSpace(searchTerm)
+        ? categorias
+        : categorias.Where(c => c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || (c.Description != null && c.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)));
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        apiBaseUrl = Http.BaseAddress?.ToString().TrimEnd('/') ?? "http://localhost:5285";
+        await CargarCategorias();
+    }
+
+    private async Task CargarCategorias()
+    {
+        loading = true;
+        try
+        {
+            categorias = await AdminService.GetCategoriasAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error al cargar categorías: {ex.Message}", "danger");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void AbrirModalCrear()
+    {
+        esEdicion = false;
+        categoriaActual = new CreateCategoryRequest { Icono = "bi-bookmark" };
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(Category cat)
+    {
+        esEdicion = true;
+        idEdicion = cat.Id;
+        categoriaActual = new CreateCategoryRequest
+        {
+            Nombre = cat.Name,
+            Descripcion = cat.Description,
+            Icono = cat.Icon,
+            ImagenUrl = cat.ImageUrl
+        };
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    private async Task SubirImagen(InputFileChangeEventArgs e)
+    {
+        subiendoImagen = true;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(file.OpenReadStream(5 * 1024 * 1024)); // 5MB max
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await AdminService.UploadImageAsync(content);
+            
+            if (response.Success)
+            {
+                categoriaActual.ImagenUrl = response.Url;
+            }
+            else
+            {
+                ShowAlert(response.Message, "warning");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Excepción al subir imagen: {ex.Message}", "danger");
+        }
+        finally
+        {
+            subiendoImagen = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GuardarCategoria()
+    {
+        guardando = true;
+        
+        try
+        {
+            ApiResponse result;
+            if (esEdicion)
+            {
+                result = await AdminService.ActualizarCategoriaAsync(idEdicion, categoriaActual);
+            }
+            else
+            {
+                result = await AdminService.CrearCategoriaAsync(categoriaActual);
+            }
+
+            if (result.Success)
+            {
+                mostrarModal = false;
+                ShowAlert($"Categoría {(esEdicion ? "actualizada" : "creada")} exitosamente", "success");
+                await CargarCategorias();
+            }
+            else
+            {
+                ShowAlert(result.Message, "danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert("Ocurrió un error inesperado al guardar.", "danger");
+        }
+        
+        guardando = false;
+    }
+
+    private async Task EliminarCategoria(Guid id)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿Estás seguro de eliminar esta categoría? No podrá ser asignada a nuevos cursos.");
+        if (confirmado)
+        {
+            var result = await AdminService.EliminarCategoriaAsync(id);
+            if (result.Success)
+            {
+                ShowAlert("Categoría eliminada exitosamente", "success");
+                await CargarCategorias();
+            }
+            else
+            {
+                ShowAlert($"Error: {result.Message}", "danger");
+            }
+        }
+    }
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertClass = $"dash-alert-{type}";
+        alertIcon = type == "success" ? "bi-check-circle" : type == "danger" ? "bi-exclamation-circle" : "bi-exclamation-triangle";
+        
+        // Hide alert after 5 seconds
+        _ = Task.Run(async () => 
+        {
+            await Task.Delay(5000);
+            alertMessage = "";
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+}

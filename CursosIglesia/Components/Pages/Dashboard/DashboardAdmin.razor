@@ -1,0 +1,175 @@
+@page "/dashboard/admin"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IAdminService AdminService
+@using CursosIglesia.Models.DTOs
+
+<div class="metrics-grid">
+    <div class="metric-card" style="--metric-color: var(--dash-accent)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-gold"><i class="bi bi-journal-bookmark"></i></div>
+            @if (metrics.CursosNuevosUltimos30Dias > 0)
+            {
+                <span class="metric-change positive">+@metrics.CursosNuevosUltimos30Dias</span>
+            }
+        </div>
+        <div class="metric-card-value">@metrics.TotalCursos</div>
+        <div class="metric-card-label">Cursos Totales</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-info)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-blue"><i class="bi bi-people"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalMaestros</div>
+        <div class="metric-card-label">Maestros Activos</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-success)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-green"><i class="bi bi-person-check"></i></div>
+            @if (metrics.InscripcionesUltimos30Dias > 0)
+            {
+                <span class="metric-change positive">+@metrics.InscripcionesUltimos30Dias últimos 30d</span>
+            }
+        </div>
+        <div class="metric-card-value">@metrics.TotalInscripciones</div>
+        <div class="metric-card-label">Inscripciones</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-warning)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-orange"><i class="bi bi-mortarboard"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalEstudiantes</div>
+        <div class="metric-card-label">Estudiantes Únicos</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: #a855f7">
+        <div class="metric-card-header">
+            <div class="metric-card-icon" style="background: rgba(168,85,247,0.15); color: #a855f7"><i class="bi bi-grid"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalCategorias</div>
+        <div class="metric-card-label">Categorías</div>
+    </div>
+
+    <div class="metric-card" style="--metric-color: var(--dash-danger)">
+        <div class="metric-card-header">
+            <div class="metric-card-icon metric-icon-red"><i class="bi bi-file-earmark"></i></div>
+        </div>
+        <div class="metric-card-value">@metrics.TotalDocumentos</div>
+        <div class="metric-card-label">Documentos</div>
+    </div>
+</div>
+
+<!-- Recent Activity Panels -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <!-- Últimos Maestros -->
+    <div class="dash-panel">
+        <div class="dash-panel-header">
+            <span class="dash-panel-title"><i class="bi bi-people"></i> Maestros</span>
+            <a href="/dashboard/admin/maestros" class="dash-btn dash-btn-outline dash-btn-sm">Ver todos</a>
+        </div>
+        <div class="dash-panel-body" style="padding: 0;">
+            @if (maestros.Any())
+            {
+                <table class="dash-table">
+                    <thead><tr><th>Nombre</th><th>Especialidad</th><th>Cursos</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in maestros.Take(5))
+                        {
+                            <tr>
+                                <td>
+                                    <div style="font-weight:600">@m.NombreCompleto</div>
+                                    <div style="font-size:0.75rem; color:var(--dash-text-muted)">@m.Email</div>
+                                </td>
+                                <td><span class="dash-badge dash-badge-gold">@m.Especialidad</span></td>
+                                <td>@m.TotalCursos</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="dash-empty">
+                    <i class="bi bi-people"></i>
+                    <h4>Sin maestros registrados</h4>
+                    <p>Crea tu primer maestro desde la sección Maestros</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Últimas Inscripciones -->
+    <div class="dash-panel">
+        <div class="dash-panel-header">
+            <span class="dash-panel-title"><i class="bi bi-person-lines-fill"></i> Inscripciones Recientes</span>
+            <a href="/dashboard/admin/inscripciones" class="dash-btn dash-btn-outline dash-btn-sm">Ver todas</a>
+        </div>
+        <div class="dash-panel-body" style="padding: 0;">
+            @if (inscripciones.Any())
+            {
+                <table class="dash-table">
+                    <thead><tr><th>Estudiante</th><th>Curso</th><th>Progreso</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in inscripciones.Take(5))
+                        {
+                            <tr>
+                                <td>@i.StudentName</td>
+                                <td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@i.CourseName</td>
+                                <td>
+                                    <div class="dash-progress" style="width:80px">
+                                        <div class="dash-progress-bar" style="width: @(i.Progress)%"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="dash-empty">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <h4>Sin inscripciones aún</h4>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="dash-loading"><div class="dash-spinner"></div></div>
+}
+
+@code {
+    private DashboardMetrics metrics = new();
+    private List<MaestroDetail> maestros = new();
+    private List<EnrollmentDetail> inscripciones = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var metricsTask = AdminService.GetDashboardMetricsAsync();
+            var maestrosTask = AdminService.GetAllMaestrosAsync();
+            var inscripcionesTask = AdminService.GetAllInscripcionesAsync();
+
+            await Task.WhenAll(metricsTask, maestrosTask, inscripcionesTask);
+
+            metrics = metricsTask.Result;
+            maestros = maestrosTask.Result;
+            inscripciones = inscripcionesTask.Result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading admin dashboard: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}
