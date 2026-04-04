@@ -20,6 +20,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMaestroService, MaestroService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IQuizService, QuizService>();
+builder.Services.AddScoped<GeminiService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");

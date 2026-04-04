@@ -8,6 +8,7 @@
     <title>Cursos Católicos - Formación en la Fe</title>
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -21,8 +22,49 @@
 <body>
     <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
     <script src="@Assets["lib/bootstrap/dist/js/bootstrap.bundle.min.js"]"></script>
     <script>
+        window.quillInterop = {
+            init: function (elementId, placeholder) {
+                var element = document.getElementById(elementId);
+                if (!element) return;
+                
+                // Clear if already exists to avoid duplicates
+                var existingEditor = element.querySelector('.ql-editor');
+                if (existingEditor) return;
+
+                var quill = new Quill('#' + elementId, {
+                    modules: {
+                        toolbar: [
+                            [{ header: [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                            [{ 'color': [] }, { 'background': [] }],
+                            [{ 'align': [] }],
+                            ['link', 'image', 'video'],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: placeholder || 'Escribe aquí...',
+                    theme: 'snow'
+                });
+                
+                // Track the editor on the element itself for easy retrieval
+                element.__quill = quill;
+            },
+            getContent: function (elementId) {
+                var element = document.getElementById(elementId);
+                return (element && element.__quill) ? element.__quill.root.innerHTML : "";
+            },
+            setContent: function (elementId, content) {
+                var element = document.getElementById(elementId);
+                if (element && element.__quill) {
+                    element.__quill.root.innerHTML = content || "";
+                }
+            }
+        };
+
         function reinitBootstrap() {
             document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(el => {
                 bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });

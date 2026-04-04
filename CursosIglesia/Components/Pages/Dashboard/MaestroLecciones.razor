@@ -2,6 +2,7 @@
 @layout CursosIglesia.Components.Layout.DashboardLayout
 @inject IMaestroService MaestroService
 @inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
 @using CursosIglesia.Models
 @using CursosIglesia.Models.DTOs
 
@@ -105,6 +106,12 @@
                                                 </div>
                                             </div>
                                             <div style="display:flex; gap:5px;">
+                                                @if (t.ContentType == ContentType.Test)
+                                                {
+                                                    <a href="/dashboard/maestro/temas/@t.Id/quiz" class="dash-btn dash-btn-outline dash-btn-sm" title="Quiz Builder">
+                                                        <i class="bi bi-ui-checks-grid"></i> Quiz
+                                                    </a>
+                                                }
                                                 <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenTopicEditModal(t, l.Id)" title="Editar Tema">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
@@ -244,15 +251,25 @@
                 @if (currentTopic.ContentType == ContentType.Lectura || currentTopic.ContentType == ContentType.VideoExterno || currentTopic.ContentType == ContentType.VideoSubido)
                 {
                      <div class="dash-form-group">
-                        <label class="dash-form-label"><i class="bi bi-textarea-t"></i> Contenido principal (HTML / Texto Múltiple)</label>
-                        <textarea class="dash-form-textarea" rows="6" @bind="currentTopic.TextContent" placeholder="Escribe el material de lectura o el contenido de la clase aquí..."></textarea>
+                        <label class="dash-form-label"><i class="bi bi-textarea-t"></i> Contenido principal (Estilo Word / Enriquecido)</label>
+                        <div id="quill-editor" style="height: 350px; background: white; color: #333; border-radius: 0 0 8px 8px; font-family: 'Inter', sans-serif;">
+                        </div>
                     </div>
                 }
                 else if (currentTopic.ContentType == ContentType.Test)
                 {
                     <div class="dash-form-group">
-                        <label class="dash-form-label"><i class="bi bi-braces"></i> IDs de Preguntas o Configuración JSON (Avanzado)</label>
-                        <textarea class="dash-form-textarea" rows="4" @bind="currentTopic.TextContent" placeholder="[101, 102, 105]"></textarea>
+                        <div class="dash-alert dash-alert-info" style="border-radius:12px; margin-top:10px; display:flex; align-items:flex-start; gap:15px; border-left:4px solid var(--dash-accent); background:rgba(var(--color-primary-rgb), 0.05);">
+                            <i class="bi bi-ui-checks-grid" style="font-size:1.8rem; color:var(--dash-accent); line-height:1;"></i>
+                            <div>
+                                <h5 style="margin:0 0 5px; color:var(--dash-primary); font-weight:700;">Diseñador de Cuestionarios</h5>
+                                <p style="margin:0; font-size:0.9rem; color:var(--dash-text-muted);">
+                                    ¡Excelente elección! Una vez que <strong>guardes este tema</strong>, aparecerá en la lista anterior. 
+                                    Haz clic en el botón <strong style="color:var(--dash-accent);"><i class="bi bi-ui-checks-grid"></i> Quiz</strong> 
+                                    al lado de este tema para usar el Constructor de Cuestionarios o <strong>generarlo con Inteligencia Artificial ✨</strong>.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
@@ -274,6 +291,7 @@
     private HashSet<Guid> expandedLessons = new();
     
     private bool loading = true, showModal = false, showTopicModal = false, saving = false, isEditing = false;
+    private bool shouldInitQuill = false;
     private string alertMessage = "", alertClass = "", alertIcon = "";
     
     private CreateLessonRequest currentLesson = new();
@@ -286,6 +304,20 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadLessons();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (shouldInitQuill && showTopicModal)
+        {
+            shouldInitQuill = false;
+            await Task.Delay(300); // Give time for DOM to render the modal
+            await JSRuntime.InvokeVoidAsync("quillInterop.init", "quill-editor", "Escribe el contenido aquí...");
+            if (!string.IsNullOrEmpty(currentTopic.TextContent))
+            {
+                await JSRuntime.InvokeVoidAsync("quillInterop.setContent", "quill-editor", currentTopic.TextContent);
+            }
+        }
     }
 
     private async Task LoadLessons()
@@ -405,6 +437,7 @@
             Order = (lesson?.Topics?.Any() == true) ? lesson.Topics.Max(t => t.Order) + 1 : 1
         };
         showTopicModal = true;
+        shouldInitQuill = true;
     }
 
     private void OpenTopicEditModal(Tema topic, Guid lessonId)
@@ -425,10 +458,17 @@
             IsFree = topic.IsFree
         };
         showTopicModal = true;
+        shouldInitQuill = true;
     }
 
     private async Task SaveTopic()
     {
+        // Get content from Quill before saving
+        if (currentTopic.ContentType == ContentType.Lectura || currentTopic.ContentType == ContentType.VideoExterno || currentTopic.ContentType == ContentType.VideoSubido)
+        {
+            currentTopic.TextContent = await JSRuntime.InvokeAsync<string>("quillInterop.getContent", "quill-editor");
+        }
+
         if (string.IsNullOrWhiteSpace(currentTopic.Title))
         { ShowAlert("El título del tema es obligatorio", "warning"); return; }
 

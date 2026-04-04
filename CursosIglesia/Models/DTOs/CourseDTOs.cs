@@ -23,3 +23,10 @@ public class LessonUpdateProgressRequest
     public Guid LessonId { get; set; }
     public int TotalLessons { get; set; }
 }
+
+public class TopicUpdateProgressRequest
+{
+    public Guid CourseId { get; set; }
+    public Guid TopicId { get; set; }
+    public int TotalTopics { get; set; }
+}

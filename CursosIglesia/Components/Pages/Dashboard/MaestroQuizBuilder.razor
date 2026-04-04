@@ -1,0 +1,317 @@
+@page "/dashboard/maestro/temas/{TemaId:guid}/quiz"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@using CursosIglesia.Models
+@using CursosIglesia.Services.Implementations.ApiClients
+@inject ApiQuizService QuizService
+@inject NavigationManager Navigation
+
+<div style="max-width:900px; margin:0 auto;">
+
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div>
+            <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="GoBack">
+                <i class="bi bi-arrow-left"></i> Volver
+            </button>
+            <h2 style="margin:10px 0 2px; color:var(--dash-text);">
+                <i class="bi bi-ui-checks-grid" style="color:var(--dash-accent);"></i>
+                Constructor de Quiz
+            </h2>
+            <p style="color:var(--dash-text-muted); font-size:0.9rem; margin:0;">Crea preguntas para este tema o genera con Inteligencia Artificial</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="dash-btn dash-btn-outline" @onclick="AddMultipleChoiceQuestion">
+                <i class="bi bi-list-ol"></i> + Opción Múltiple
+            </button>
+            <button class="dash-btn dash-btn-outline" @onclick="AddMatchingQuestion">
+                <i class="bi bi-shuffle"></i> + Emparejar
+            </button>
+            <button class="dash-btn ai-btn" @onclick="GenerateWithAI" disabled="@generatingAI" style="background:linear-gradient(135deg, #667eea, #764ba2); color:#fff; border:none; padding:8px 18px; border-radius:8px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                @if (generatingAI)
+                {
+                    <span class="dash-spinner" style="width:16px;height:16px;"></span>
+                    <span>Generando...</span>
+                }
+                else
+                {
+                    <i class="bi bi-stars"></i>
+                    <span>✨ Generar con IA</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert -->
+    @if (!string.IsNullOrEmpty(alertMsg))
+    {
+        <div class="dash-alert @alertClass" style="margin-bottom:16px;">
+            <i class="bi @alertIcon"></i> @alertMsg
+        </div>
+    }
+
+    <!-- Quiz Settings -->
+    <div class="dash-panel" style="margin-bottom:20px;">
+        <div class="dash-panel-header">
+            <span class="dash-panel-title"><i class="bi bi-gear"></i> Configuración del Quiz</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 0;">
+            <div class="dash-form-group">
+                <label class="dash-form-label">Título del Quiz</label>
+                <input class="dash-form-input" @bind="quizTitulo" placeholder="Ej: Evaluación Unidad 1" />
+            </div>
+            <div class="dash-form-group">
+                <label class="dash-form-label">Porcentaje mínimo para aprobar (%)</label>
+                <input class="dash-form-input" type="number" min="1" max="100" @bind="quizMinAprobado" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Questions -->
+    @if (!preguntas.Any())
+    {
+        <div style="text-align:center; padding:60px 20px; background:var(--dash-panel-bg); border-radius:12px; border:2px dashed var(--dash-border);">
+            <i class="bi bi-question-circle" style="font-size:3rem; color:var(--dash-text-muted); display:block; margin-bottom:16px;"></i>
+            <h4 style="color:var(--dash-text); margin-bottom:8px;">Sin preguntas todavía</h4>
+            <p style="color:var(--dash-text-muted);">Agrega preguntas manualmente o haz clic en <strong>✨ Generar con IA</strong> para crearlas automáticamente desde el contenido del tema.</p>
+        </div>
+    }
+    else
+    {
+        @for (int qi = 0; qi < preguntas.Count; qi++)
+        {
+            var idx = qi;
+            var p = preguntas[idx];
+            <div class="dash-panel" style="margin-bottom:16px; border-left:4px solid @(p.TipoPregunta == TipoPregunta.OpcionMultiple ? "var(--dash-accent)" : "#667eea");">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="background:var(--dash-accent); color:#fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem;">@(idx+1)</span>
+                        <span class="dash-badge" style="background:@(p.TipoPregunta == TipoPregunta.OpcionMultiple ? "rgba(var(--color-primary-rgb),0.1)" : "rgba(102,126,234,0.15)"); color:@(p.TipoPregunta == TipoPregunta.OpcionMultiple ? "var(--color-primary)" : "#667eea"); font-size:0.75rem;">
+                            <i class="bi @(p.TipoPregunta == TipoPregunta.OpcionMultiple ? "bi-list-ol" : "bi-shuffle")"></i>
+                            @(p.TipoPregunta == TipoPregunta.OpcionMultiple ? "Opción Múltiple" : "Emparejar")
+                        </span>
+                    </div>
+                    <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => RemoveQuestion(idx)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+
+                <div class="dash-form-group">
+                    <textarea class="dash-form-textarea" rows="2" @bind="p.Texto" @bind:event="oninput" placeholder="Escribe la pregunta aquí..."></textarea>
+                </div>
+
+                @if (p.TipoPregunta == TipoPregunta.OpcionMultiple)
+                {
+                    <!-- Multiple Choice Options -->
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        @foreach (var letra in new[] { "A", "B", "C", "D" })
+                        {
+                            var opcion = p.Opciones.FirstOrDefault(o => o.LetraOpcion == letra);
+                            if (opcion == null)
+                            {
+                                opcion = new CreateOpcionRequest { LetraOpcion = letra };
+                                p.Opciones.Add(opcion);
+                            }
+                            var l = letra;
+                            var op = opcion;
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; background:@(op.EsCorrecta ? "var(--dash-accent)" : "var(--dash-bg)"); color:@(op.EsCorrecta ? "#fff" : "var(--dash-text-muted)"); border:2px solid @(op.EsCorrecta ? "var(--dash-accent)" : "var(--dash-border)");">@l</span>
+                                <input class="dash-form-input" style="flex:1;" @bind="op.TextoOpcion" @bind:event="oninput" placeholder="Opción @l..." />
+                                <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--dash-text-muted); font-size:0.8rem; white-space:nowrap;">
+                                    <input type="radio" name="correct-@idx" checked="@op.EsCorrecta" @onchange="() => SetCorrectOption(p, l)" style="cursor:pointer;" />
+                                    Correcta
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <!-- Matching Pairs -->
+                    <div style="background:rgba(102,126,234,0.05); border-radius:8px; padding:12px;">
+                        <p style="font-size:0.8rem; color:var(--dash-text-muted); margin-bottom:12px;"><i class="bi bi-info-circle"></i> Define pares Izquierda ↔ Derecha. El estudiante deberá unirlos.</p>
+                        @for (int pi = 0; pi < p.Opciones.Count; pi++)
+                        {
+                            var pairIdx = pi;
+                            var pair = p.Opciones[pairIdx];
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                                <span style="color:var(--dash-text-muted); font-size:0.8rem; width:20px;">@(pairIdx+1)</span>
+                                <input class="dash-form-input" style="flex:1;" @bind="pair.TextoOpcion" @bind:event="oninput" placeholder="Término..." />
+                                <i class="bi bi-arrow-left-right" style="color:var(--dash-text-muted);"></i>
+                                <input class="dash-form-input" style="flex:1;" @bind="pair.ParEmparejar" @bind:event="oninput" placeholder="Definición..." />
+                                <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => p.Opciones.RemoveAt(pairIdx)"><i class="bi bi-x"></i></button>
+                            </div>
+                        }
+                        <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => p.Opciones.Add(new CreateOpcionRequest())">
+                            <i class="bi bi-plus"></i> Agregar par
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <!-- Save -->
+    @if (preguntas.Any())
+    {
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+            <button class="dash-btn dash-btn-outline" @onclick="GoBack">Cancelar</button>
+            <button class="dash-btn dash-btn-primary" @onclick="SaveQuiz" disabled="@saving">
+                @if (saving) { <span>Guardando...</span> }
+                else { <span><i class="bi bi-check-lg"></i> Guardar Quiz</span> }
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid TemaId { get; set; }
+
+    private string quizTitulo = "Evaluación del Tema";
+    private int quizMinAprobado = 70;
+    private List<CreatePreguntaRequest> preguntas = new();
+    private Guid? existingQuizId;
+    private string temaTextContent = "";
+    private bool saving = false, generatingAI = false;
+    private string alertMsg = "", alertClass = "", alertIcon = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var quiz = await QuizService.GetQuizByTemaAsync(TemaId);
+        if (quiz != null)
+        {
+            existingQuizId = quiz.IdQuiz;
+            quizTitulo = quiz.Titulo;
+            quizMinAprobado = quiz.MinAprobado;
+            preguntas = quiz.Preguntas.Select(p => new CreatePreguntaRequest
+            {
+                TipoPregunta = p.TipoPregunta,
+                Texto = p.Texto,
+                Orden = p.Orden,
+                Opciones = p.Opciones.Select(o => new CreateOpcionRequest
+                {
+                    TextoOpcion = o.TextoOpcion,
+                    LetraOpcion = o.LetraOpcion,
+                    EsCorrecta = o.EsCorrecta,
+                    ParEmparejar = o.ParEmparejar
+                }).ToList()
+            }).ToList();
+        }
+    }
+
+    private void AddMultipleChoiceQuestion()
+    {
+        preguntas.Add(new CreatePreguntaRequest
+        {
+            TipoPregunta = TipoPregunta.OpcionMultiple,
+            Orden = preguntas.Count + 1,
+            Texto = "",
+            Opciones = new List<CreateOpcionRequest>
+            {
+                new() { LetraOpcion = "A" },
+                new() { LetraOpcion = "B" },
+                new() { LetraOpcion = "C" },
+                new() { LetraOpcion = "D" }
+            }
+        });
+    }
+
+    private void AddMatchingQuestion()
+    {
+        preguntas.Add(new CreatePreguntaRequest
+        {
+            TipoPregunta = TipoPregunta.Emparejar,
+            Orden = preguntas.Count + 1,
+            Texto = "Une cada término con su definición correcta:",
+            Opciones = new List<CreateOpcionRequest>
+            {
+                new() { TextoOpcion = "", ParEmparejar = "" },
+                new() { TextoOpcion = "", ParEmparejar = "" },
+                new() { TextoOpcion = "", ParEmparejar = "" }
+            }
+        });
+    }
+
+    private void RemoveQuestion(int idx) => preguntas.RemoveAt(idx);
+
+    private void SetCorrectOption(CreatePreguntaRequest p, string letraCorrecta)
+    {
+        foreach (var o in p.Opciones)
+            o.EsCorrecta = o.LetraOpcion == letraCorrecta;
+    }
+
+    private async Task GenerateWithAI()
+    {
+        generatingAI = true;
+        alertMsg = "";
+        try
+        {
+            // Get the tema content from API
+            var quiz = await QuizService.GenerateWithAIAsync(TemaId, "Generar preguntas basadas en el contenido del tema.");
+            if (quiz != null)
+            {
+                existingQuizId = quiz.IdQuiz;
+                quizTitulo = quiz.Titulo;
+                preguntas = quiz.Preguntas.Select(p => new CreatePreguntaRequest
+                {
+                    TipoPregunta = p.TipoPregunta,
+                    Texto = p.Texto,
+                    Orden = p.Orden,
+                    Opciones = p.Opciones.Select(o => new CreateOpcionRequest
+                    {
+                        TextoOpcion = o.TextoOpcion,
+                        LetraOpcion = o.LetraOpcion,
+                        EsCorrecta = o.EsCorrecta
+                    }).ToList()
+                }).ToList();
+                SetAlert("✨ ¡Quiz generado con IA exitosamente! Revisa y ajusta las preguntas si es necesario.", "success");
+            }
+            else SetAlert("❌ Hubo un error al generar las preguntas con IA.", "danger");
+        }
+        catch (Exception ex) { SetAlert($"Error: {ex.Message}", "danger"); }
+        finally { generatingAI = false; }
+    }
+
+    private async Task SaveQuiz()
+    {
+        saving = true;
+        try
+        {
+            var request = new CreateQuizRequest
+            {
+                Titulo = quizTitulo,
+                MinAprobado = quizMinAprobado,
+                Preguntas = preguntas.Select((p, i) => new CreatePreguntaRequest
+                {
+                    TipoPregunta = p.TipoPregunta,
+                    Texto = p.Texto,
+                    Orden = i + 1,
+                    Opciones = p.Opciones
+                }).ToList()
+            };
+
+            Quiz? result;
+            if (existingQuizId.HasValue)
+                result = await QuizService.UpdateQuizAsync(existingQuizId.Value, request);
+            else
+                result = await QuizService.CreateQuizAsync(TemaId, request);
+
+            if (result != null)
+            {
+                existingQuizId = result.IdQuiz;
+                SetAlert("✅ Quiz guardado correctamente.", "success");
+            }
+            else SetAlert("❌ Error al guardar el quiz.", "danger");
+        }
+        catch (Exception ex) { SetAlert($"Error: {ex.Message}", "danger"); }
+        finally { saving = false; }
+    }
+
+    private void GoBack() => Navigation.NavigateTo($"/dashboard/maestro/cursos");
+
+    private void SetAlert(string msg, string type)
+    {
+        alertMsg = msg;
+        alertClass = $"dash-alert-{type}";
+        alertIcon = type == "success" ? "bi-check-circle" : "bi-exclamation-circle";
+    }
+}

@@ -9,6 +9,7 @@ public class LearningViewModel : ViewModelBase
 {
     private readonly ICourseService _courseService;
     private readonly IEnrollmentService _enrollmentService;
+    private readonly IAuthService _authService;
 
     private Course? _course;
     public Course? Course
@@ -54,14 +55,15 @@ public class LearningViewModel : ViewModelBase
 
     public double Progress => Enrollment?.Progress ?? 0;
 
-    public int CompletedCount => Enrollment?.CompletedLessonIds.Count ?? 0;
+    public int CompletedCount => Enrollment?.CompletedTopicIds.Count ?? 0;
 
-    public int TotalLessons => Course?.Lessons.Count ?? 0;
+    public int TotalTopics => Course?.Lessons.SelectMany(l => l.Topics ?? new List<Tema>()).Count() ?? 0;
 
-    public LearningViewModel(ICourseService courseService, IEnrollmentService enrollmentService)
+    public LearningViewModel(ICourseService courseService, IEnrollmentService enrollmentService, IAuthService authService)
     {
         _courseService = courseService;
         _enrollmentService = enrollmentService;
+        _authService = authService;
     }
 
     public async Task LoadCourseAsync(Guid courseId)
@@ -86,17 +88,22 @@ public class LearningViewModel : ViewModelBase
                 return;
             }
 
-            // Set current lesson
+            // Set current lesson/topic
             if (Enrollment.CurrentLessonId.HasValue && Enrollment.CurrentLessonId.Value != Guid.Empty)
             {
                 CurrentLesson = Course.Lessons.FirstOrDefault(l => l.Id == Enrollment.CurrentLessonId.Value);
             }
 
-            // If no current lesson set, start with the first one
             if (CurrentLesson == null && Course.Lessons.Any())
             {
-                CurrentLesson = Course.Lessons.OrderBy(l => l.Order).First();
-                await _enrollmentService.SetCurrentLessonAsync(courseId, CurrentLesson.Id);
+                CurrentLesson = Course.Lessons.OrderBy(l => l.Order)
+                                              .FirstOrDefault(l => !IsLessonLocked(l.Id)) ?? Course.Lessons.OrderBy(l => l.Order).First();
+            }
+
+            // Select first topic of current lesson if none selected
+            if (CurrentTopic == null && CurrentLesson != null && CurrentLesson.Topics != null && CurrentLesson.Topics.Any())
+            {
+                CurrentTopic = CurrentLesson.Topics.OrderBy(t => t.Order).First();
             }
 
             UpdateCurrentLessonStatus();
@@ -107,6 +114,7 @@ public class LearningViewModel : ViewModelBase
         }
         finally
         {
+            OnPropertyChanged(nameof(Progress));
             IsLoading = false;
         }
     }
@@ -114,6 +122,7 @@ public class LearningViewModel : ViewModelBase
     public async Task SelectLessonAsync(Guid lessonId)
     {
         if (Course == null || Enrollment == null) return;
+        if (IsLessonLocked(lessonId)) return;
 
         var lesson = Course.Lessons.FirstOrDefault(l => l.Id == lessonId);
         if (lesson == null) return;
@@ -125,6 +134,7 @@ public class LearningViewModel : ViewModelBase
         if (lesson.Topics != null && lesson.Topics.Any())
         {
             CurrentTopic = lesson.Topics.OrderBy(t => t.Order).First();
+            await _enrollmentService.SetCurrentTopicAsync(Course.Id, CurrentTopic.Id);
         }
         else
         {
@@ -135,24 +145,33 @@ public class LearningViewModel : ViewModelBase
         NotifyProgressChanged();
     }
 
-    public Task SelectTopicAsync(Tema topic)
+    public async Task SelectTopicAsync(Tema topic)
     {
+        if (IsTopicLocked(topic.Id)) return;
+        
         CurrentTopic = topic;
-        return Task.CompletedTask;
+        if (topic.LessonId != CurrentLesson?.Id)
+        {
+            CurrentLesson = Course?.Lessons.FirstOrDefault(l => l.Id == topic.LessonId);
+        }
+        
+        await _enrollmentService.SetCurrentTopicAsync(Course!.Id, topic.Id);
+        UpdateCurrentLessonStatus();
+        NotifyProgressChanged();
     }
 
-    public async Task CompleteCurrentLessonAsync()
+    public async Task CompleteCurrentTopicAsync()
     {
-        if (Course == null || Enrollment == null || CurrentLesson == null) return;
+        if (Course == null || Enrollment == null || CurrentTopic == null) return;
 
-        var request = new LessonUpdateProgressRequest
+        var request = new TopicUpdateProgressRequest
         {
             CourseId = Course.Id,
-            LessonId = CurrentLesson.Id,
-            TotalLessons = Course.Lessons.Count
+            TopicId = CurrentTopic.Id,
+            TotalTopics = TotalTopics
         };
 
-        await _enrollmentService.CompleteLessonAsync(request);
+        await _enrollmentService.CompleteTopicAsync(request);
 
         // Refresh enrollment data
         Enrollment = await _enrollmentService.GetEnrollmentAsync(Course.Id);
@@ -163,20 +182,54 @@ public class LearningViewModel : ViewModelBase
 
     public async Task CompleteAndNextAsync()
     {
-        if (Course == null || CurrentLesson == null) return;
+        if (Course == null || CurrentTopic == null) return;
 
-        await CompleteCurrentLessonAsync();
+        // 1. Complete current topic
+        await CompleteCurrentTopicAsync();
 
-        // Move to next lesson
-        var nextLesson = Course.Lessons
-            .Where(l => l.Order > CurrentLesson.Order)
+        // 2. Find next topic in linear order
+        var allTopics = Course.Lessons
             .OrderBy(l => l.Order)
-            .FirstOrDefault();
+            .SelectMany(l => (l.Topics ?? new List<Tema>()).OrderBy(t => t.Order))
+            .ToList();
 
-        if (nextLesson != null)
+        var currentIndex = allTopics.FindIndex(t => t.Id == CurrentTopic.Id);
+        
+        if (currentIndex != -1 && currentIndex < allTopics.Count - 1)
         {
-            await SelectLessonAsync(nextLesson.Id);
+            var nextTopic = allTopics[currentIndex + 1];
+            await SelectTopicAsync(nextTopic);
         }
+        else if (currentIndex == allTopics.Count - 1)
+        {
+            // Course finished
+            NotifyProgressChanged();
+        }
+    }
+
+    public async Task SaveQuizAttemptAsync(Guid idQuiz, double score, int minRequired)
+    {
+        // Ensure auth is initialized if it hasn't been yet (precaution)
+        if (_authService.CurrentUser == null)
+        {
+            await _authService.InitializeAsync();
+        }
+
+        var attempt = new QuizAttempt
+        {
+            IdUsuario = _authService.CurrentUser?.Id ?? Guid.Empty,
+            IdQuiz = idQuiz,
+            PuntajeObtenido = score,
+            MinimoRequerido = minRequired
+        };
+
+        if (attempt.IdUsuario == Guid.Empty)
+        {
+            // Logging or handling error: User not identified
+            return;
+        }
+
+        await _enrollmentService.SaveQuizAttemptAsync(attempt);
     }
 
     public void ToggleSidebar()
@@ -184,19 +237,66 @@ public class LearningViewModel : ViewModelBase
         IsSidebarOpen = !IsSidebarOpen;
     }
 
+    public bool IsTopicCompleted(Guid topicId)
+        => Enrollment?.CompletedTopicIds.Contains(topicId) ?? false;
+
+    public bool IsTopicLocked(Guid topicId)
+    {
+        if (Course == null || Enrollment == null) return true;
+
+        var allTopics = Course.Lessons
+            .OrderBy(l => l.Order)
+            .SelectMany(l => (l.Topics ?? new List<Tema>()).OrderBy(t => t.Order))
+            .ToList();
+
+        var index = allTopics.FindIndex(t => t.Id == topicId);
+        if (index <= 0) return false; // First topic is never locked
+
+        // Locked if previous topic is not completed
+        var prevTopic = allTopics[index - 1];
+        return !IsTopicCompleted(prevTopic.Id);
+    }
+
+    public bool IsLessonLocked(Guid lessonId)
+    {
+        if (Course == null) return true;
+        var lesson = Course.Lessons.FirstOrDefault(l => l.Id == lessonId);
+        if (lesson == null) return true;
+
+        // Locked if it's not the first lesson AND the last topic of the previous lesson is not completed
+        var prevLesson = Course.Lessons
+            .Where(l => l.Order < lesson.Order)
+            .OrderByDescending(l => l.Order)
+            .FirstOrDefault();
+
+        if (prevLesson == null) return false;
+
+        var lastTopicOfPrev = prevLesson.Topics?.OrderByDescending(t => t.Order).FirstOrDefault();
+        if (lastTopicOfPrev == null) return false; // If prev lesson has no topics, it can't block
+
+        return !IsTopicCompleted(lastTopicOfPrev.Id);
+    }
+
     public bool IsLessonCompleted(Guid lessonId)
-        => Enrollment?.CompletedLessonIds.Contains(lessonId) ?? false;
+    {
+        if (Course == null || Enrollment == null) return false;
+        var lesson = Course.Lessons.FirstOrDefault(l => l.Id == lessonId);
+        if (lesson == null || lesson.Topics == null || !lesson.Topics.Any()) return false;
+
+        // A lesson is completed if all its topics are completed
+        return lesson.Topics.All(t => IsTopicCompleted(t.Id));
+    }
 
     private void UpdateCurrentLessonStatus()
     {
-        IsCurrentLessonCompleted = CurrentLesson != null &&
-            (Enrollment?.CompletedLessonIds.Contains(CurrentLesson.Id) ?? false);
+        IsCurrentLessonCompleted = CurrentTopic != null && IsTopicCompleted(CurrentTopic.Id);
     }
 
     private void NotifyProgressChanged()
     {
         OnPropertyChanged(nameof(Progress));
         OnPropertyChanged(nameof(CompletedCount));
-        OnPropertyChanged(nameof(TotalLessons));
+        OnPropertyChanged(nameof(TotalTopics));
+        OnPropertyChanged(nameof(IsCurrentLessonCompleted));
     }
 }

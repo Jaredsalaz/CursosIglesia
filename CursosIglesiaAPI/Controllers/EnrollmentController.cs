@@ -61,10 +61,31 @@ public class EnrollmentController : ControllerBase
         return success ? Ok() : BadRequest();
     }
 
+    [HttpPost("complete-topic")]
+    public async Task<IActionResult> CompleteTopic([FromBody] TopicUpdateProgressRequest request)
+    {
+        var success = await _enrollmentService.CompleteTopicAsync(request);
+        return success ? Ok() : BadRequest();
+    }
+
+    [HttpPost("current-topic/{courseId}/{topicId}")]
+    public async Task<IActionResult> SetCurrentTopic(Guid courseId, Guid topicId)
+    {
+        var success = await _enrollmentService.SetCurrentTopicAsync(courseId, topicId);
+        return success ? Ok() : BadRequest();
+    }
+
     [HttpPost("current-lesson/{courseId}/{lessonId}")]
     public async Task<IActionResult> SetCurrentLesson(Guid courseId, Guid lessonId)
     {
         var success = await _enrollmentService.SetCurrentLessonAsync(courseId, lessonId);
+        return success ? Ok() : BadRequest();
+    }
+
+    [HttpPost("quiz-attempt")]
+    public async Task<IActionResult> SaveQuizAttempt([FromBody] QuizAttempt attempt)
+    {
+        var success = await _enrollmentService.SaveQuizAttemptAsync(attempt);
         return success ? Ok() : BadRequest();
     }
 }

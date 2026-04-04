@@ -1,0 +1,344 @@
+@using CursosIglesia.Models
+@using CursosIglesia.Services.Implementations.ApiClients
+@inject ApiQuizService QuizService
+@inject LearningViewModel ViewModel
+
+@if (loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Cargando evaluación...</p>
+    </div>
+}
+else if (quiz == null)
+{
+    <div class="alert alert-warning text-center">
+        <i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i>
+        <h5 class="mt-2">Evaluación no disponible</h5>
+        <p>El maestro aún no ha publicado las preguntas para este tema.</p>
+    </div>
+}
+else if (hasSubmitted)
+{
+    <!-- Quiz Results -->
+    <div class="card shadow-sm border-0" style="border-radius:12px; overflow:hidden;">
+        <div class="card-header border-0 text-center text-white" style="background:@(passed ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #ef4444, #b91c1c)"); padding:30px 20px;">
+            <i class="bi @(passed ? "bi-trophy-fill" : "bi-x-circle")" style="font-size:4rem; opacity:0.9;"></i>
+            <h2 class="mt-3 mb-0">@(passed ? "¡Felicidades, aprobaste!" : "No aprobaste la evaluación")</h2>
+            <p class="mb-0 mt-2" style="font-size:1.1rem; opacity:0.9;">Tu calificación: <strong>@Math.Round(scorePercentage)%</strong></p>
+        </div>
+        <div class="card-body p-4 text-center">
+            <p class="text-muted mb-4">El porcentaje mínimo requerido para aprobar era <strong>@quiz.MinAprobado%</strong>.</p>
+            
+            <div class="d-flex justify-content-center gap-4 mb-4">
+                <div class="text-center">
+                    <div style="font-size:2rem; font-weight:700; color:#10b981;">@correctAnswers</div>
+                    <div class="text-muted small">Respuestas<br>Correctas</div>
+                </div>
+                <div style="width:2px; background:#e5e7eb;"></div>
+                <div class="text-center">
+                    <div style="font-size:2rem; font-weight:700; color:#ef4444;">@(quiz.Preguntas.Count - correctAnswers)</div>
+                    <div class="text-muted small">Respuestas<br>Incorrectas</div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-center gap-3">
+                <button class="btn btn-outline-secondary px-4 py-2" style="border-radius:30px;" @onclick="RetryQuiz">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reintentar Evaluación
+                </button>
+
+                @if (passed)
+                {
+                    <button class="btn btn-success px-4 py-2" style="border-radius:30px; font-weight:600;" @onclick="() => ViewModel.CompleteAndNextAsync()">
+                        Continuar <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Active Quiz View -->
+    <div class="card shadow-sm border-0" style="border-radius:12px;">
+        <div class="card-header bg-white border-bottom p-4">
+            <h3 class="mb-1" style="color:var(--color-primary); font-weight:700;">@quiz.Titulo</h3>
+            @if (!string.IsNullOrEmpty(quiz.Descripcion))
+            {
+                <p class="text-muted mb-0">@quiz.Descripcion</p>
+            }
+        </div>
+        
+        <div class="card-body p-4">
+            <!-- Progress Bar -->
+            <div class="progress mb-4" style="height:8px; border-radius:4px;">
+                <div class="progress-bar" role="progressbar" style="width: @((currentQuestionIndex + 1) * 100 / quiz.Preguntas.Count)%; background:var(--color-secondary);"></div>
+            </div>
+
+            <div class="mb-4">
+                <span class="badge" style="background:var(--color-primary-light); color:var(--color-primary); font-weight:600; padding:6px 12px; border-radius:30px;">
+                    Pregunta @(currentQuestionIndex + 1) de @quiz.Preguntas.Count
+                </span>
+            </div>
+
+            @{
+                var currentQ = quiz.Preguntas[currentQuestionIndex];
+            }
+
+            <h4 class="mb-4" style="font-weight:600; line-height:1.4;">@currentQ.Texto</h4>
+
+            @if (currentQ.TipoPregunta == TipoPregunta.OpcionMultiple)
+            {
+                <div class="d-flex flex-column gap-3">
+                    @for (int i = 0; i < currentQ.Opciones.Count; i++)
+                    {
+                        var opt = currentQ.Opciones[i];
+                        var letter = (char)('A' + i);
+                        var isSelected = selectedAnswers.ContainsKey(currentQ.IdPregunta.ToString()) && selectedAnswers[currentQ.IdPregunta.ToString()] == opt.IdOpcion.ToString();
+                        
+                        <div class="quiz-option @(isSelected ? "selected" : "")" @onclick="() => SelectOption(currentQ.IdPregunta.ToString(), opt.IdOpcion.ToString())" 
+                             style="padding:16px 20px; border:2px solid @(isSelected ? "var(--color-secondary)" : "#e5e7eb"); border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:16px; transition:all 0.2s; background:@(isSelected ? "rgba(var(--color-secondary-rgb), 0.05)" : "transparent");">
+                            
+                            <div style="width:24px; height:24px; border-radius:50%; border:2px solid @(isSelected ? "var(--color-secondary)" : "#d1d5db"); display:flex; align-items:center; justify-content:center; flex-shrink:0; background:@(isSelected ? "var(--color-secondary)" : "transparent");">
+                                @if (isSelected) { <i class="bi bi-check" style="color:white; font-size:1.2rem; line-height:1;"></i> }
+                            </div>
+                            
+                            <div style="flex:1;">
+                                <span style="font-weight:700; color:var(--color-primary); margin-right:8px;">@letter.</span>
+                                <span>@opt.TextoOpcion</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- Drag and Drop Matching (Simplified fallback to dropdowns for accessibility/reliability) -->
+                <!-- A complex D&D requires custom JS, using native select elements is cleaner for Blazor Server -->
+                <div class="alert alert-info border-0" style="background:rgba(var(--color-primary-rgb),0.05); color:var(--color-primary);">
+                    <i class="bi bi-info-circle me-2"></i> Selecciona la definición correcta para cada término.
+                </div>
+                
+                <div class="d-flex flex-column gap-3 mt-4">
+                    @for (int i = 0; i < currentQ.Opciones.Count; i++)
+                    {
+                        var opt = currentQ.Opciones[i];
+                        // Get the current selected answer for this SPECIFIC pair (we store it as questionId_optionId)
+                        var selectKey = $"{currentQ.IdPregunta}_{opt.IdOpcion}";
+                        var currentValue = selectedAnswers.ContainsKey(selectKey) ? selectedAnswers[selectKey] : "";
+                        
+                        <div class="d-flex align-items-center gap-3 p-3" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+                            <div style="flex:1; font-weight:600; color:#374151;">
+                                @opt.TextoOpcion
+                            </div>
+                            <div style="color:#9ca3af;"><i class="bi bi-arrow-right"></i></div>
+                            <div style="flex:1;">
+                                <select class="form-select border-0 shadow-sm" value="@currentValue" @onchange="(e) => SelectMatching(selectKey, e.Value?.ToString())">
+                                    <option value="" disabled selected>Selecciona la respuesta...</option>
+                                    @foreach (var shuffledOpt in matchingOptions[currentQ.IdPregunta])
+                                    {
+                                        <option value="@shuffledOpt.ParEmparejar">@shuffledOpt.ParEmparejar</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        
+        <div class="card-footer bg-white border-top p-4 d-flex justify-content-between align-items-center">
+            @if (currentQuestionIndex > 0)
+            {
+                <button class="btn btn-outline-secondary px-4" @onclick="PreviousQuestion" style="border-radius:30px;">
+                    <i class="bi bi-arrow-left"></i> Anterior
+                </button>
+            }
+            else
+            {
+                <div></div> <!-- Spacer -->
+            }
+
+            @if (currentQuestionIndex < quiz.Preguntas.Count - 1)
+            {
+                <button class="btn btn-primary px-4" @onclick="NextQuestion" disabled="@(!CanProceed())" style="border-radius:30px; background:var(--color-secondary); border:none;">
+                    Siguiente <i class="bi bi-arrow-right"></i>
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-success px-4" @onclick="SubmitQuiz" disabled="@(!CanProceed())" style="border-radius:30px; font-weight:600;">
+                    <i class="bi bi-check-circle"></i> Finalizar Quiz
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid TemaId { get; set; }
+
+    private bool loading = true;
+    private Quiz? quiz;
+    private int currentQuestionIndex = 0;
+    
+    // Dictionary to store user answers. 
+    // For MultipleChoice: Key = QuestionId, Value = OptionId
+    // For Matching: Key = "QuestionId_OptionId", Value = Selected Text
+    private Dictionary<string, string> selectedAnswers = new();
+    
+    // To hold shuffled right-side matching options per question
+    private Dictionary<Guid, List<OpcionPregunta>> matchingOptions = new();
+
+    private bool hasSubmitted = false;
+    private int correctAnswers = 0;
+    private double scorePercentage = 0;
+    private bool passed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuiz();
+    }
+
+    private async Task LoadQuiz()
+    {
+        loading = true;
+        try
+        {
+            quiz = await QuizService.GetQuizByTemaAsync(TemaId);
+            if (quiz != null)
+            {
+                ShuffleQuizData();
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ShuffleQuizData()
+    {
+        if (quiz == null) return;
+        var random = new Random();
+
+        // 1. Shuffle Questions
+        quiz.Preguntas = quiz.Preguntas.OrderBy(x => random.Next()).ToList();
+
+        // 2. Shuffle Options for each question
+        foreach (var q in quiz.Preguntas)
+        {
+            if (q.TipoPregunta == TipoPregunta.OpcionMultiple)
+            {
+                q.Opciones = q.Opciones.OrderBy(x => random.Next()).ToList();
+            }
+            else if (q.TipoPregunta == TipoPregunta.Emparejar)
+            {
+                // Prepare matching questions (shuffle the right-side answers)
+                matchingOptions[q.IdPregunta] = q.Opciones.OrderBy(x => random.Next()).ToList();
+            }
+        }
+    }
+
+    private void SelectOption(string questionIdStr, string optionId)
+    {
+        selectedAnswers[questionIdStr] = optionId;
+    }
+
+    private void SelectMatching(string key, string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            selectedAnswers[key] = value;
+        }
+    }
+
+    private bool CanProceed()
+    {
+        if (quiz == null) return false;
+        var currentQ = quiz.Preguntas[currentQuestionIndex];
+        
+        if (currentQ.TipoPregunta == TipoPregunta.OpcionMultiple)
+        {
+            return selectedAnswers.ContainsKey(currentQ.IdPregunta.ToString());
+        }
+        else
+        {
+            // For matching, ensure ALL pairs in the current question have been selected
+            return currentQ.Opciones.All(opt => selectedAnswers.ContainsKey($"{currentQ.IdPregunta}_{opt.IdOpcion}"));
+        }
+    }
+
+    private void NextQuestion()
+    {
+        if (CanProceed() && currentQuestionIndex < quiz.Preguntas.Count - 1)
+        {
+            currentQuestionIndex++;
+        }
+    }
+
+    private void PreviousQuestion()
+    {
+        if (currentQuestionIndex > 0)
+        {
+            currentQuestionIndex--;
+        }
+    }
+
+    private async Task SubmitQuiz()
+    {
+        if (quiz == null || !CanProceed()) return;
+
+        correctAnswers = 0;
+        // ... (rest of score calculation logic remains the same)
+        // I'll just copy the calculation block and add the save call at the end
+        
+        int totalPoints = 0;
+        foreach (var q in quiz.Preguntas)
+        {
+            if (q.TipoPregunta == TipoPregunta.OpcionMultiple) totalPoints += 1;
+            else if (q.TipoPregunta == TipoPregunta.Emparejar) totalPoints += q.Opciones.Count;
+        }
+
+        int studentPoints = 0;
+        foreach (var q in quiz.Preguntas)
+        {
+            if (q.TipoPregunta == TipoPregunta.OpcionMultiple)
+            {
+                var correctOpt = q.Opciones.FirstOrDefault(o => o.EsCorrecta);
+                if (correctOpt != null && selectedAnswers.TryGetValue(q.IdPregunta.ToString(), out var userOptId))
+                {
+                    if (userOptId == correctOpt.IdOpcion.ToString()) studentPoints++;
+                }
+            }
+            else if (q.TipoPregunta == TipoPregunta.Emparejar)
+            {
+                foreach (var opt in q.Opciones)
+                {
+                    if (selectedAnswers.TryGetValue($"{q.IdPregunta}_{opt.IdOpcion}", out var userSelectedText))
+                    {
+                        if (userSelectedText == opt.ParEmparejar) studentPoints++;
+                    }
+                }
+            }
+        }
+
+        correctAnswers = studentPoints;
+        scorePercentage = totalPoints > 0 ? ((double)studentPoints / totalPoints) * 100 : 0;
+        passed = scorePercentage >= quiz.MinAprobado;
+        hasSubmitted = true;
+
+        // NEW: Save the attempt to the database
+        await ViewModel.SaveQuizAttemptAsync(quiz.IdQuiz, scorePercentage, quiz.MinAprobado);
+    }
+
+    private void RetryQuiz()
+    {
+        currentQuestionIndex = 0;
+        selectedAnswers.Clear();
+        hasSubmitted = false;
+        
+        // Reshuffle everything
+        ShuffleQuizData();
+    }
+}

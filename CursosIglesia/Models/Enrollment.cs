@@ -6,6 +6,8 @@ public class Enrollment
     public DateTime EnrolledDate { get; set; }
     public double Progress { get; set; }
     public List<Guid> CompletedLessonIds { get; set; } = new();
+    public List<Guid> CompletedTopicIds { get; set; } = new();
     public Guid? CurrentLessonId { get; set; }
+    public Guid? CurrentTopicId { get; set; }
     public bool IsCompleted { get; set; }
 }

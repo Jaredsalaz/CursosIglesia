@@ -12,4 +12,7 @@ public interface IEnrollmentService
     Task<Enrollment?> GetEnrollmentAsync(Guid courseId);
     Task<bool> CompleteLessonAsync(LessonUpdateProgressRequest request);
     Task<bool> SetCurrentLessonAsync(Guid courseId, Guid lessonId);
+    Task<bool> SetCurrentTopicAsync(Guid courseId, Guid topicId);
+    Task<bool> CompleteTopicAsync(TopicUpdateProgressRequest request);
+    Task<bool> SaveQuizAttemptAsync(QuizAttempt attempt);
 }

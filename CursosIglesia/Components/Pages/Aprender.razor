@@ -2,6 +2,8 @@
 @using Microsoft.AspNetCore.Authorization
 @using System
 @using System.Web
+@using System.ComponentModel
+@implements IDisposable
 @attribute [Authorize]
 @inject LearningViewModel ViewModel
 @inject NavigationManager Navigation
@@ -39,12 +41,12 @@ else if (ViewModel.Course != null)
                 <div class="sidebar-course-info">
                     <h4>@ViewModel.Course.Title</h4>
                     <div class="sidebar-progress-info">
-                        <span>@ViewModel.CompletedCount / @ViewModel.TotalLessons lecciones</span>
-                        <span class="fw-bold">@ViewModel.Progress%</span>
+                        <span>@ViewModel.CompletedCount / @ViewModel.TotalTopics temas</span>
+                        <span class="fw-bold">@Math.Round(ViewModel.Progress)%</span>
                     </div>
                     <div class="progress-bar-track">
-                        <div class="progress-bar-fill @(ViewModel.Enrollment?.IsCompleted == true ? "completed" : "")"
-                             style="width: @ViewModel.Progress%"></div>
+                        <div class="progress-bar-fill @(ViewModel.Progress >= 100 ? "completed" : "")"
+                             style="width: @Math.Round(ViewModel.Progress)%"></div>
                     </div>
                 </div>
                 <button class="sidebar-toggle" @onclick="ViewModel.ToggleSidebar">
@@ -57,12 +59,19 @@ else if (ViewModel.Course != null)
                 {
                     var isCompleted = ViewModel.IsLessonCompleted(lesson.Id);
                     var isCurrent = ViewModel.CurrentLesson?.Id == lesson.Id;
+                    var isLessonLocked = ViewModel.IsLessonLocked(lesson.Id);
+                    var isLessonDone = ViewModel.IsLessonCompleted(lesson.Id);
 
                     <div class="lesson-nav-group @(isCurrent ? "active" : "")">
-                        <button class="lesson-nav-item @(isCurrent ? "active" : "") @(isCompleted ? "completed" : "")"
-                                @onclick="() => SelectLesson(lesson.Id)">
+                        <button class="lesson-nav-item @(isCurrent ? "active" : "") @(isLessonDone ? "completed" : "") @(isLessonLocked ? "locked" : "")"
+                                @onclick="() => !isLessonLocked ? SelectLesson(lesson.Id) : Task.CompletedTask"
+                                disabled="@isLessonLocked">
                             <div class="lesson-nav-status">
-                                @if (isCompleted)
+                                @if (isLessonLocked)
+                                {
+                                    <i class="bi bi-lock-fill"></i>
+                                }
+                                else if (isLessonDone)
                                 {
                                     <i class="bi bi-check-circle-fill"></i>
                                 }
@@ -90,9 +99,13 @@ else if (ViewModel.Course != null)
                                 @foreach (var topic in lesson.Topics.OrderBy(t => t.Order))
                                 {
                                     var isCurrentTopic = ViewModel.CurrentTopic?.Id == topic.Id;
-                                    <button class="topic-nav-item @(isCurrentTopic ? "active" : "")" 
-                                            @onclick="() => ViewModel.SelectTopicAsync(topic)">
-                                        <i class="bi @GetTopicIcon(topic.ContentType) me-2"></i>
+                                    var isTopicLocked = ViewModel.IsTopicLocked(topic.Id);
+                                    var isTopicDone = ViewModel.IsTopicCompleted(topic.Id);
+
+                                    <button class="topic-nav-item @(isCurrentTopic ? "active" : "") @(isTopicLocked ? "locked" : "")" 
+                                            @onclick="() => !isTopicLocked ? ViewModel.SelectTopicAsync(topic) : Task.CompletedTask"
+                                            disabled="@isTopicLocked">
+                                        <i class="bi @(isTopicLocked ? "bi-lock" : (isTopicDone ? "bi-check-circle-fill text-success" : GetTopicIcon(topic.ContentType))) me-2"></i>
                                         <span>@topic.Title</span>
                                     </button>
                                 }
@@ -127,7 +140,7 @@ else if (ViewModel.Course != null)
                     <span>@ViewModel.Course.Title</span>
                 </div>
                 <div class="topbar-progress">
-                    <span>@ViewModel.Progress% completado</span>
+                    <span>@Math.Round(ViewModel.Progress)% completado</span>
                 </div>
             </div>
 
@@ -147,7 +160,7 @@ else if (ViewModel.Course != null)
                                 <i class="bi bi-list-check me-1"></i>@(lesson.Topics?.Count ?? 0) temas
                             </span>
                             <span class="lesson-order">
-                                Lección @lesson.Order de @ViewModel.TotalLessons
+                                Lección @lesson.Order de @ViewModel.TotalTopics
                             </span>
                         </div>
                         <h2>@lesson.Title</h2>
@@ -191,6 +204,26 @@ else if (ViewModel.Course != null)
                                             <div class="alert alert-warning">No hay URL de video configurada.</div>
                                         }
                                     </div>
+                                    
+                                    @if (!string.IsNullOrEmpty(topic.TextContent))
+                                    {
+                                        <div class="topic-text-content mt-4">
+                                            @((MarkupString)topic.TextContent)
+                                        </div>
+                                    }
+                                }
+                                else if (topic.ContentType == ContentType.Test)
+                                {
+                                    <div class="topic-quiz-container mt-4">
+                                        <StudentQuiz TemaId="@topic.Id" />
+                                    </div>
+                                    
+                                    @if (!string.IsNullOrEmpty(topic.TextContent) && !topic.TextContent.TrimStart().StartsWith("["))
+                                    {
+                                        <div class="topic-text-content mt-4">
+                                            @((MarkupString)topic.TextContent)
+                                        </div>
+                                    }
                                 }
                                 else
                                 {
@@ -220,9 +253,13 @@ else if (ViewModel.Course != null)
                                 <h4 class="mb-3">Temas en este módulo:</h4>
                                 @foreach (var topic in lesson.Topics.OrderBy(t => t.Order))
                                 {
-                                    <div class="lesson-placeholder" style="margin-bottom: 1rem; border-left: 4px solid var(--color-primary); text-align:left; display:flex; gap:1.5rem; justify-content:flex-start; align-items:flex-start;">
-                                        <div class="placeholder-icon" style="font-size:2rem; margin:0; color:var(--color-primary)">
-                                            <i class="bi @GetTopicIcon(topic.ContentType)"></i>
+                                    var itLocked = ViewModel.IsTopicLocked(topic.Id);
+                                    var topicStyle = $"margin-bottom: 1rem; border-left: 4px solid {(itLocked ? "#ccc" : "var(--color-primary)")}; opacity: {(itLocked ? "0.6" : "1")}; text-align:left; display:flex; gap:1.5rem; justify-content:flex-start; align-items:flex-start;";
+                                    var iconColor = itLocked ? "#999" : "var(--color-primary)";
+
+                                    <div class="lesson-placeholder @(itLocked ? "locked" : "")" style="@topicStyle">
+                                        <div class="placeholder-icon" style="font-size:2rem; margin:0; color:@iconColor">
+                                            <i class="bi @(itLocked ? "bi-lock-fill" : GetTopicIcon(topic.ContentType))"></i>
                                         </div>
                                         <div style="flex:1;">
                                             <h4 style="margin-bottom:0.5rem; font-size:1.1rem">@topic.Title</h4>
@@ -232,10 +269,15 @@ else if (ViewModel.Course != null)
                                             }
                                             <div class="placeholder-meta" style="justify-content:flex-start; font-size:0.85rem;">
                                                 <i class="bi bi-clock me-1"></i> @topic.DurationMinutes min
+                                                @if (ViewModel.IsTopicCompleted(topic.Id))
+                                                {
+                                                    <span class="ms-2 text-success"><i class="bi bi-check-circle-fill"></i> Completado</span>
+                                                }
                                             </div>
                                         </div>
-                                        <button class="btn-catholic" @onclick="() => ViewModel.SelectTopicAsync(topic)" style="padding:0.5rem 1rem; font-size:0.9rem">
-                                            Entrar <i class="bi bi-arrow-right ms-1"></i>
+                                        <button class="btn-catholic" @onclick="() => !itLocked ? ViewModel.SelectTopicAsync(topic) : Task.CompletedTask" 
+                                                style="padding:0.5rem 1rem; font-size:0.9rem" disabled="@itLocked">
+                                            @(itLocked ? "Bloqueado" : "Entrar") <i class="bi @(itLocked ? "bi-lock" : "bi-arrow-right") ms-1"></i>
                                         </button>
                                     </div>
                                 }
@@ -248,57 +290,31 @@ else if (ViewModel.Course != null)
                         @if (ViewModel.IsCurrentLessonCompleted)
                         {
                             <div class="lesson-completed-badge">
-                                <i class="bi bi-check-circle-fill me-2"></i> Lección completada
+                                <i class="bi bi-check-circle-fill me-2"></i> Tema completado
                             </div>
                         }
 
                         <div class="lesson-action-buttons">
-                            @{
-                                var prevLesson = ViewModel.Course.Lessons
-                                    .Where(l => l.Order < lesson.Order)
-                                    .OrderByDescending(l => l.Order)
-                                    .FirstOrDefault();
-
-                                var nextLesson = ViewModel.Course.Lessons
-                                    .Where(l => l.Order > lesson.Order)
-                                    .OrderBy(l => l.Order)
-                                    .FirstOrDefault();
-                            }
-
-                            @if (prevLesson != null)
-                            {
-                                <button class="btn-lesson-nav prev" @onclick="() => SelectLesson(prevLesson.Id)">
-                                    <i class="bi bi-chevron-left me-1"></i> Anterior
-                                </button>
-                            }
-
                             @if (!ViewModel.IsCurrentLessonCompleted)
                             {
-                                @if (nextLesson != null)
+                                @if (ViewModel.CurrentTopic?.ContentType != ContentType.Test)
                                 {
                                     <button class="btn-catholic" @onclick="CompleteAndNext">
                                         Completar y Siguiente <i class="bi bi-chevron-right ms-1"></i>
                                     </button>
                                 }
-                                else
+                                else 
                                 {
-                                    <button class="btn-catholic" @onclick="CompleteLesson">
-                                        <i class="bi bi-check-circle me-1"></i> Completar Curso
-                                    </button>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-info-circle me-1"></i> Pasa el test para continuar
+                                    </div>
                                 }
                             }
-                            else if (nextLesson != null)
+                            else 
                             {
-                                <button class="btn-catholic" @onclick="() => SelectLesson(nextLesson.Id)">
+                                <button class="btn-catholic" @onclick="CompleteAndNext">
                                     Siguiente <i class="bi bi-chevron-right ms-1"></i>
                                 </button>
-                            }
-                            else if (ViewModel.Enrollment?.IsCompleted == true)
-                            {
-                                <div class="course-completed-message">
-                                    <i class="bi bi-trophy-fill me-2"></i>
-                                    <span>¡Felicidades! Has completado el curso.</span>
-                                </div>
                             }
                         </div>
                     </div>
@@ -319,24 +335,41 @@ else if (ViewModel.Course != null)
         if (firstRender && !_isInitialized && CourseId != Guid.Empty)
         {
             _isInitialized = true;
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             await ViewModel.LoadCourseAsync(CourseId);
             StateHasChanged();
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ViewModel.CurrentTopic != null && 
+            ViewModel.CurrentTopic.ContentType != ContentType.Test && 
+            !ViewModel.IsTopicCompleted(ViewModel.CurrentTopic.Id))
+        {
+            await ViewModel.CompleteCurrentTopicAsync();
         }
     }
 
     private async Task SelectLesson(Guid lessonId)
     {
         await ViewModel.SelectLessonAsync(lessonId);
+        StateHasChanged();
     }
 
     private async Task CompleteAndNext()
     {
         await ViewModel.CompleteAndNextAsync();
-    }
-
-    private async Task CompleteLesson()
-    {
-        await ViewModel.CompleteCurrentLessonAsync();
     }
 
     private string GetTopicIcon(ContentType type) => type switch
@@ -365,3 +398,19 @@ else if (ViewModel.Course != null)
         }
     }
 }
+
+<style>
+    /* Progression Styles */
+    .lesson-nav-item.locked, .topic-nav-item.locked, .lesson-placeholder.locked {
+        opacity: 0.5;
+        cursor: not-allowed !important;
+    }
+    .lesson-nav-item.locked button, .topic-nav-item.locked, .lesson-placeholder.locked button {
+        pointer-events: none;
+    }
+    .topic-nav-item.active {
+        background: rgba(13, 110, 253, 0.1);
+        border-right: 3px solid #0d6efd;
+        font-weight: 600;
+    }
+</style>
