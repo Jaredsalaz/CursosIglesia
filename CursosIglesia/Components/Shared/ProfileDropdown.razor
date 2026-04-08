@@ -1,6 +1,7 @@
 @inject IUserService UserService
 @inject IAuthService AuthService
 @inject NavigationManager NavigationManager
+@using CursosIglesia.Models
 
 <div class="nav-profile-dropdown">
     <button class="nav-avatar-btn" @onclick="ToggleDropdown" @onclick:stopPropagation="true">
@@ -23,6 +24,20 @@
             <a href="/perfil" class="dropdown-item-custom" @onclick="CloseDropdown">
                 <i class="bi bi-person me-2"></i> Mi Perfil
             </a>
+            
+            @if (_roleId == Roles.SuperAdmin)
+            {
+                <a href="/dashboard/admin" class="dropdown-item-custom text-primary fw-bold" @onclick="CloseDropdown">
+                    <i class="bi bi-speedometer2 me-2"></i> Panel de Administrador
+                </a>
+            }
+            else if (_roleId == Roles.Maestro)
+            {
+                <a href="/dashboard/maestro" class="dropdown-item-custom text-primary fw-bold" @onclick="CloseDropdown">
+                    <i class="bi bi-mortarboard me-2"></i> Panel de Maestro
+                </a>
+            }
+
             <a href="/mis-cursos" class="dropdown-item-custom" @onclick="CloseDropdown">
                 <i class="bi bi-journal-bookmark me-2"></i> Mis Cursos
             </a>
@@ -42,6 +57,7 @@
 
 @code {
     private bool _dropdownOpen = false;
+    private Guid _roleId = Guid.Empty;
     private string _avatarUrl = "";
     private string _firstName = "";
     private string _fullName = "";
@@ -54,6 +70,7 @@
             var profile = await UserService.GetProfileAsync();
             if (profile != null)
             {
+                _roleId = profile.RoleId;
                 _avatarUrl = profile.AvatarUrl;
                 _firstName = profile.FirstName;
                 _fullName = profile.FullName;

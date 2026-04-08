@@ -60,6 +60,10 @@ builder.Services.AddScoped<IAdminService, ApiAdminService>();
 builder.Services.AddHttpClient<IAdminService, ApiAdminService>(client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
+builder.Services.AddScoped<ApiQuizService>();
+builder.Services.AddHttpClient<ApiQuizService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
+
 // Register ViewModels
 builder.Services.AddScoped<HomeViewModel>();
 builder.Services.AddScoped<CoursesViewModel>();

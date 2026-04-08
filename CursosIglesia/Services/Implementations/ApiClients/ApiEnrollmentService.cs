@@ -88,4 +88,34 @@ public class ApiEnrollmentService : IEnrollmentService
         using var response = await _httpClient.SendAsync(request);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<bool> CompleteTopicAsync(TopicUpdateProgressRequest request)
+    {
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/enrollment/complete-topic")
+        {
+            Content = JsonContent.Create(request)
+        };
+        await AddAuthorizationHeaderAsync(httpRequest);
+        using var response = await _httpClient.SendAsync(httpRequest);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SetCurrentTopicAsync(Guid courseId, Guid topicId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"api/enrollment/current-topic/{courseId}/{topicId}");
+        await AddAuthorizationHeaderAsync(request);
+        using var response = await _httpClient.SendAsync(request);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SaveQuizAttemptAsync(QuizAttempt attempt)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/enrollment/quiz-attempt")
+        {
+            Content = JsonContent.Create(attempt)
+        };
+        await AddAuthorizationHeaderAsync(request);
+        using var response = await _httpClient.SendAsync(request);
+        return response.IsSuccessStatusCode;
+    }
 }
