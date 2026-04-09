@@ -22,4 +22,9 @@ public interface IMaestroService
     Task<List<EnrollmentDetail>> GetTodasMisInscripcionesAsync(Guid userId);
     Task<List<TeacherDocument>> GetDocumentosMaestroAsync(Guid userId);
     Task<ApiResponse> SubirDocumentoAsync(Guid userId, TeacherDocument document);
+
+    // Archivos de apoyo por tema
+    Task<List<ArchivoTema>> GetArchivosTemaAsync(Guid temaId);
+    Task<ApiResponse<Guid>> AgregarArchivoTemaAsync(ArchivoTema archivo);
+    Task<ApiResponse<string>> EliminarArchivoTemaAsync(Guid archivoId);
 }

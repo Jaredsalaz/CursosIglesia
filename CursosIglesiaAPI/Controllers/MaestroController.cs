@@ -167,4 +167,14 @@ public class MaestroController : ControllerBase
         var result = await _maestroService.SubirDocumentoAsync(_authService.CurrentUser.Id, document);
         return Ok(result);
     }
+
+    [HttpGet("topics/{topicId}/files")]
+    public async Task<ActionResult<List<ArchivoTema>>> GetTopicFiles(Guid topicId)
+    {
+        if (!_authService.IsAuthenticated || _authService.CurrentUser == null)
+            return Unauthorized();
+
+        var files = await _maestroService.GetArchivosTemaAsync(topicId);
+        return Ok(files);
+    }
 }

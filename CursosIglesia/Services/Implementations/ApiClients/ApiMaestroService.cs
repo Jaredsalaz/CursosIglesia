@@ -100,6 +100,42 @@ public class ApiMaestroService : IMaestroService
             ?? new ApiResponse { Success = false, Message = "Error de conexión" };
     }
 
+    public async Task<List<ArchivoTema>> GetArchivosTemaAsync(Guid temaId)
+    {
+        return await _httpClient.GetFromJsonAsync<List<ArchivoTema>>($"api/courses/topics/{temaId}/files") ?? new();
+    }
+
+    public async Task<ArchivoTema?> SubirArchivoTemaAsync(Guid temaId, Stream fileStream, string fileName, string contentType)
+    {
+        using var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        content.Add(fileContent, "file", fileName);
+
+        var response = await _httpClient.PostAsync($"api/upload/topic-file?temaId={temaId}", content);
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var json = await response.Content.ReadFromJsonAsync<TopicFileUploadResponse>();
+        if (json?.Success == true && json.Archivo != null)
+        {
+            // Fix relative URLs to absolute
+            var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+            if (!string.IsNullOrEmpty(baseUrl) && json.Archivo.RutaArchivo.StartsWith("/"))
+                json.Archivo.RutaArchivo = baseUrl + json.Archivo.RutaArchivo;
+
+            return json.Archivo;
+        }
+        return null;
+    }
+
+    public async Task<bool> EliminarArchivoTemaAsync(Guid archivoId)
+    {
+        var response = await _httpClient.DeleteAsync($"api/upload/topic-file/{archivoId}");
+        return response.IsSuccessStatusCode;
+    }
+
     private void FixUrls(Course course)
     {
         if (course == null) return;
@@ -111,5 +147,12 @@ public class ApiMaestroService : IMaestroService
             if (!string.IsNullOrEmpty(course.InstructorImageUrl) && course.InstructorImageUrl.StartsWith("/"))
                 course.InstructorImageUrl = baseUrl + course.InstructorImageUrl;
         }
+    }
+
+    // Helper response class for file upload
+    private class TopicFileUploadResponse
+    {
+        public bool Success { get; set; }
+        public ArchivoTema? Archivo { get; set; }
     }
 }

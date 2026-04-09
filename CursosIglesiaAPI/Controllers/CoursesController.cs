@@ -1,6 +1,7 @@
 using CursosIglesia.Models;
 using CursosIglesia.Models.DTOs;
 using CursosIglesia.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CursosIglesia.Controllers;
@@ -10,10 +11,12 @@ namespace CursosIglesia.Controllers;
 public class CoursesController : ControllerBase
 {
     private readonly ICourseService _courseService;
+    private readonly IMaestroService _maestroService;
 
-    public CoursesController(ICourseService courseService)
+    public CoursesController(ICourseService courseService, IMaestroService maestroService)
     {
         _courseService = courseService;
+        _maestroService = maestroService;
     }
 
     [HttpGet]
@@ -64,5 +67,17 @@ public class CoursesController : ControllerBase
     {
         var courses = await _courseService.SearchCoursesAsync(request);
         return Ok(courses);
+    }
+
+    /// <summary>
+    /// Devuelve los archivos de apoyo de un tema.
+    /// Accesible para cualquier usuario autenticado (alumnos inscritos).
+    /// </summary>
+    [HttpGet("topics/{topicId}/files")]
+    [Authorize]
+    public async Task<ActionResult<List<ArchivoTema>>> GetTopicFiles(Guid topicId)
+    {
+        var files = await _maestroService.GetArchivosTemaAsync(topicId);
+        return Ok(files);
     }
 }

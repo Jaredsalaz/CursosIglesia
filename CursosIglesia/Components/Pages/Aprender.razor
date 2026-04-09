@@ -3,10 +3,12 @@
 @using System
 @using System.Web
 @using System.ComponentModel
+@using CursosIglesia.Models
 @implements IDisposable
 @attribute [Authorize]
 @inject LearningViewModel ViewModel
 @inject NavigationManager Navigation
+@inject IMaestroService MaestroService
 
 <PageTitle>@(ViewModel.Course?.Title ?? "Aprendiendo") - Cursos Católicos</PageTitle>
 
@@ -235,6 +237,30 @@ else if (ViewModel.Course != null)
                                         }
                                     </div>
                                 }
+
+                                @* --- Material de Apoyo: archivos descargables --- *@
+                                @if (archivosTema.Any())
+                                {
+                                    <div class="apoyo-files-section">
+                                        <div class="apoyo-files-title">
+                                            <i class="bi bi-paperclip" style="color:var(--color-primary);"></i>
+                                            Material de Apoyo
+                                        </div>
+                                        @foreach (var archivo in archivosTema)
+                                        {
+                                            <a href="@archivo.RutaArchivo" target="_blank" download="@archivo.NombreOriginal" class="apoyo-file-link">
+                                                <span style="width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; @GetApoyoIconStyle(archivo.TipoArchivo)">
+                                                    <i class="bi @GetApoyoIcon(archivo.TipoArchivo)"></i>
+                                                </span>
+                                                <div style="flex:1; min-width:0;">
+                                                    <div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@archivo.NombreOriginal</div>
+                                                    <div style="font-size:0.75rem; opacity:0.6;">@archivo.TipoArchivo.ToUpper() &middot; @FormatApoyoBytes(archivo.TamanoBytes)</div>
+                                                </div>
+                                                <i class="bi bi-download" style="font-size:1rem; opacity:0.5; flex-shrink:0;"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                }
                             </div>
                         }
                         else if (lesson.Topics == null || !lesson.Topics.Any())
@@ -329,6 +355,7 @@ else if (ViewModel.Course != null)
     public Guid CourseId { get; set; }
 
     private bool _isInitialized = false;
+    private List<ArchivoTema> archivosTema = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -337,12 +364,32 @@ else if (ViewModel.Course != null)
             _isInitialized = true;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             await ViewModel.LoadCourseAsync(CourseId);
+            // Load attachments for the first topic selected
+            if (ViewModel.CurrentTopic != null)
+                await LoadArchivosTema(ViewModel.CurrentTopic.Id);
             StateHasChanged();
         }
     }
 
+    private Guid _lastLoadedTopicId = Guid.Empty;
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Reload topic files whenever the selected topic changes
+        if (e.PropertyName == nameof(ViewModel.CurrentTopic) || e.PropertyName == null)
+        {
+            var topicId = ViewModel.CurrentTopic?.Id ?? Guid.Empty;
+            if (topicId != Guid.Empty && topicId != _lastLoadedTopicId)
+            {
+                _lastLoadedTopicId = topicId;
+                InvokeAsync(async () =>
+                {
+                    await LoadArchivosTema(topicId);
+                    StateHasChanged();
+                });
+                return;
+            }
+        }
         InvokeAsync(StateHasChanged);
     }
 
@@ -372,6 +419,13 @@ else if (ViewModel.Course != null)
         await ViewModel.CompleteAndNextAsync();
     }
 
+    // Load files when a topic is selected
+    private async Task LoadArchivosTema(Guid temaId)
+    {
+        try { archivosTema = await MaestroService.GetArchivosTemaAsync(temaId); }
+        catch { archivosTema = new(); }
+    }
+
     private string GetTopicIcon(ContentType type) => type switch
     {
         ContentType.VideoSubido => "bi-play-circle",
@@ -382,6 +436,29 @@ else if (ViewModel.Course != null)
         ContentType.ClaseVirtual => "bi-camera-video",
         _ => "bi-file-text"
     };
+
+    private string GetApoyoIcon(string tipo) => tipo.ToLower() switch
+    {
+        "pdf" => "bi-file-earmark-pdf-fill",
+        "doc" or "docx" => "bi-file-earmark-word-fill",
+        "png" or "jpg" or "jpeg" or "webp" or "gif" => "bi-file-earmark-image-fill",
+        _ => "bi-file-earmark-fill"
+    };
+
+    private string GetApoyoIconStyle(string tipo) => tipo.ToLower() switch
+    {
+        "pdf" => "background:rgba(239,68,68,0.12); color:#ef4444;",
+        "doc" or "docx" => "background:rgba(59,130,246,0.12); color:#3b82f6;",
+        "png" or "jpg" or "jpeg" or "webp" or "gif" => "background:rgba(168,85,247,0.12); color:#a855f7;",
+        _ => "background:rgba(156,163,175,0.12); color:#9ca3af;"
+    };
+
+    private string FormatApoyoBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
 
     private string ExtractYoutubeId(string url)
     {

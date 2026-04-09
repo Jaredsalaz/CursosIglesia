@@ -3121,3 +3121,51 @@ img {
         flex-direction: column;
     }
 }
+
+/* =====================================================
+   Material de Apoyo — Student Learning View
+   ===================================================== */
+.apoyo-files-section {
+    margin-top: 2rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.apoyo-files-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.apoyo-file-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: var(--transition-fast);
+    margin-bottom: 0.5rem;
+}
+
+.apoyo-file-link:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(123, 45, 38, 0.04);
+    text-decoration: none;
+}
+
+.apoyo-file-link:last-child {
+    margin-bottom: 0;
+}

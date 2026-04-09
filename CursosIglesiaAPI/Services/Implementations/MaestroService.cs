@@ -277,4 +277,58 @@ public class MaestroService : IMaestroService
             Message = success ? "Documento subido exitosamente" : (parameters.Get<string>("@MensajeError") ?? "Error al subir documento")
         };
     }
+
+    public async Task<List<ArchivoTema>> GetArchivosTemaAsync(Guid temaId)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var archivos = await db.QueryAsync<ArchivoTema>(
+            "usp_DashboardTemas",
+            new { Accion = "ListarArchivosPorTema", IdTema = temaId },
+            commandType: CommandType.StoredProcedure
+        );
+        return archivos.ToList();
+    }
+
+    public async Task<ApiResponse<Guid>> AgregarArchivoTemaAsync(ArchivoTema archivo)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var parameters = new DynamicParameters();
+        parameters.Add("@Accion", "AgregarArchivoTema");
+        parameters.Add("@IdTema", archivo.TemaId);
+        parameters.Add("@NombreOriginal", archivo.NombreOriginal);
+        parameters.Add("@NombreServidor", archivo.NombreServidor);
+        parameters.Add("@RutaArchivo", archivo.RutaArchivo);
+        parameters.Add("@TipoArchivo", archivo.TipoArchivo);
+        parameters.Add("@TamanoBytes", archivo.TamanoBytes);
+        parameters.Add("@IdNuevo", dbType: DbType.Guid, direction: ParameterDirection.Output);
+        parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        parameters.Add("@MensajeError", dbType: DbType.String, size: 200, direction: ParameterDirection.Output);
+
+        await db.ExecuteAsync("usp_DashboardTemas", parameters, commandType: CommandType.StoredProcedure);
+
+        bool success = parameters.Get<bool>("@Exito");
+        if (success)
+            return new ApiResponse<Guid> { Success = true, Data = parameters.Get<Guid>("@IdNuevo"), Message = "Archivo agregado" };
+
+        return new ApiResponse<Guid> { Success = false, Message = parameters.Get<string>("@MensajeError") ?? "Error al agregar archivo" };
+    }
+
+    public async Task<ApiResponse<string>> EliminarArchivoTemaAsync(Guid archivoId)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var parameters = new DynamicParameters();
+        parameters.Add("@Accion", "EliminarArchivoTema");
+        parameters.Add("@IdArchivo", archivoId);
+        parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        parameters.Add("@MensajeError", dbType: DbType.String, size: 200, direction: ParameterDirection.Output);
+
+        // SP returns a resultset with RutaArchivo before deleting
+        var rutaArchivo = await db.QueryFirstOrDefaultAsync<string>("usp_DashboardTemas", parameters, commandType: CommandType.StoredProcedure);
+
+        bool success = parameters.Get<bool>("@Exito");
+        if (success)
+            return new ApiResponse<string> { Success = true, Data = rutaArchivo ?? "", Message = "Archivo eliminado" };
+
+        return new ApiResponse<string> { Success = false, Message = parameters.Get<string>("@MensajeError") ?? "Error al eliminar archivo" };
+    }
 }

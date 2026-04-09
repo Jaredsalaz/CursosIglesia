@@ -901,3 +901,150 @@
         padding: 16px;
     }
 }
+
+/* =====================================================
+   Topic File Upload Zone
+   ===================================================== */
+.topic-upload-zone {
+    border: 2px dashed var(--dash-border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    transition: all 0.25s ease;
+    background: rgba(255, 255, 255, 0.02);
+    user-select: none;
+}
+
+.topic-upload-zone:hover {
+    border-color: var(--dash-accent);
+    background: rgba(201, 168, 76, 0.05);
+}
+
+.topic-upload-zone.uploading {
+    cursor: wait;
+    pointer-events: none;
+    border-color: var(--dash-accent);
+    background: rgba(201, 168, 76, 0.05);
+}
+
+.upload-progress-anim {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+/* File counter badge */
+.topic-file-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(201, 168, 76, 0.12);
+    color: var(--dash-accent);
+    border: 1px solid rgba(201, 168, 76, 0.25);
+    transition: all 0.2s;
+}
+
+.topic-file-counter.at-limit {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--dash-danger);
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Individual file item row */
+.topic-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--dash-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 10px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.topic-file-item:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* File type icon box */
+.topic-file-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.topic-file-icon.file-pdf   { background: rgba(239, 68, 68, 0.12);  color: #ef4444; }
+.topic-file-icon.file-word  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.topic-file-icon.file-image { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+.topic-file-icon.file-other { background: rgba(156, 163, 175, 0.12); color: #9ca3af; }
+
+/* File type badge (small inline) */
+.topic-file-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.topic-file-badge.file-pdf   { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+.topic-file-badge.file-word  { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.topic-file-badge.file-image { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.topic-file-badge.file-other { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
+
+/* Material de apoyo — student download card */
+.apoyo-files-section {
+    margin-top: 24px;
+    padding: 18px 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--dash-border);
+    border-radius: 14px;
+}
+
+.apoyo-files-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--dash-text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.apoyo-file-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--dash-surface);
+    border: 1px solid var(--dash-border);
+    color: var(--dash-text);
+    text-decoration: none;
+    transition: all 0.2s;
+    margin-bottom: 8px;
+}
+
+.apoyo-file-link:hover {
+    border-color: var(--dash-accent);
+    color: var(--dash-accent);
+    background: rgba(201, 168, 76, 0.06);
+}
+
+.apoyo-file-link:last-child {
+    margin-bottom: 0;
+}
+

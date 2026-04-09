@@ -5,6 +5,7 @@
 @inject IJSRuntime JSRuntime
 @using CursosIglesia.Models
 @using CursosIglesia.Models.DTOs
+@using Microsoft.AspNetCore.Components.Forms
 
 <!-- Actions Bar -->
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -272,6 +273,102 @@
                         </div>
                     </div>
                 }
+
+                @* ============================================================ *@
+                @* SECCIÓN: Material de Apoyo (archivos adjuntos 1-3)           *@
+                @* Solo visible cuando el tema ya fue guardado (tiene ID)        *@
+                @* ============================================================ *@
+                @if (editingTopicId.HasValue)
+                {
+                    <hr style="border-color:var(--dash-border); margin:20px 0;"/>
+                    <div class="dash-form-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                            <label class="dash-form-label" style="margin:0;">
+                                <i class="bi bi-paperclip" style="color:var(--dash-accent);"></i>
+                                Material de Apoyo
+                                <span style="font-weight:400; font-size:0.8rem; color:var(--dash-text-muted); margin-left:6px;">(imágenes, PDF, Word)</span>
+                            </label>
+                            <span class="topic-file-counter @(archivosTema.Count >= 3 ? "at-limit" : "")">
+                                <i class="bi bi-files"></i> @archivosTema.Count / 3
+                            </span>
+                        </div>
+
+                        @* Zona de subida *@
+                        @* Fix Blazor Server: InputFile con display:none + label for evita el bug _blazorFilesById *@
+                        <InputFile id="topic-file-input" OnChange="OnTopicFileSelected"
+                                   accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx"
+                                   style="display:none;" />
+
+                        @if (archivosTema.Count < 3)
+                        {
+                            <label for="topic-file-input" class="topic-upload-zone @(uploadingFile ? "uploading" : "")"
+                                   style="cursor: @(uploadingFile ? "wait" : "pointer"); display:block;">
+                                @if (uploadingFile)
+                                {
+                                    <div class="upload-progress-anim">
+                                        <div class="dash-spinner" style="width:32px;height:32px;"></div>
+                                        <span style="color:var(--dash-text-muted); font-size:0.9rem;">Subiendo archivo...</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-cloud-upload" style="font-size:2.2rem; color:var(--dash-accent); display:block; margin-bottom:8px;"></i>
+                                    <p style="margin:0 0 6px; font-weight:600; color:var(--dash-text);">Arrastra un archivo o haz clic aquí</p>
+                                    <p style="margin:0; font-size:0.8rem; color:var(--dash-text-muted);">JPG, PNG, PDF, DOCX · Máx. 3 MB · @(3 - archivosTema.Count) lugar(es) disponible(s)</p>
+                                }
+                            </label>
+                        }
+                        else
+                        {
+                            <div style="text-align:center; padding:12px; background:rgba(var(--color-warning-rgb,255,193,7),0.08); border:1px dashed rgba(255,193,7,0.5); border-radius:10px; color:var(--dash-text-muted); font-size:0.9rem;">
+                                <i class="bi bi-exclamation-triangle" style="color:#ffc107;"></i> Límite alcanzado (3/3). Elimina un archivo para agregar otro.
+                            </div>
+                        }
+
+                        @* Error de subida *@
+                        @if (!string.IsNullOrEmpty(uploadError))
+                        {
+                            <div style="margin-top:10px; padding:8px 12px; background:rgba(220,53,69,0.08); border-left:3px solid #dc3545; border-radius:6px; font-size:0.85rem; color:#dc3545;">
+                                <i class="bi bi-exclamation-circle"></i> @uploadError
+                            </div>
+                        }
+
+                        @* Lista de archivos ya subidos *@
+                        @if (archivosTema.Any())
+                        {
+                            <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+                                @foreach (var archivo in archivosTema)
+                                {
+                                    <div class="topic-file-item">
+                                        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
+                                            <div class="topic-file-icon @GetFileIconClass(archivo.TipoArchivo)">
+                                                <i class="bi @GetFileIcon(archivo.TipoArchivo)"></i>
+                                            </div>
+                                            <div style="min-width:0; flex:1;">
+                                                <div style="font-weight:600; font-size:0.9rem; color:var(--dash-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="@archivo.NombreOriginal">
+                                                    @archivo.NombreOriginal
+                                                </div>
+                                                <div style="font-size:0.75rem; color:var(--dash-text-muted);">
+                                                    <span class="topic-file-badge @GetFileIconClass(archivo.TipoArchivo)">@archivo.TipoArchivo.ToUpper()</span>
+                                                    <span style="margin-left:6px;">@FormatBytes(archivo.TamanoBytes)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => EliminarArchivoTema(archivo.Id)" title="Eliminar archivo" style="flex-shrink:0;">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="margin-top:16px; padding:12px 16px; background:rgba(var(--color-primary-rgb),0.05); border:1px dashed var(--dash-border); border-radius:10px; font-size:0.85rem; color:var(--dash-text-muted); text-align:center;">
+                        <i class="bi bi-info-circle" style="color:var(--dash-accent);"></i> Guarda el tema primero para adjuntar archivos de apoyo.
+                    </div>
+                }
             </div>
             <div class="dash-modal-footer">
                 <button class="dash-btn dash-btn-outline" @onclick="() => showTopicModal = false">Cancelar</button>
@@ -300,6 +397,11 @@
     private CreateTemaRequest currentTopic = new();
     private Guid? editingTopicId;
     private Guid currentModifyingLessonId;
+
+    // --- Archivos de apoyo del tema ---
+    private List<ArchivoTema> archivosTema = new();
+    private bool uploadingFile = false;
+    private string uploadError = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -430,6 +532,8 @@
         isEditing = false;
         editingTopicId = null;
         currentModifyingLessonId = lessonId;
+        archivosTema = new();
+        uploadError = "";
         currentTopic = new CreateTemaRequest
         {
             LessonId = lessonId,
@@ -440,11 +544,12 @@
         shouldInitQuill = true;
     }
 
-    private void OpenTopicEditModal(Tema topic, Guid lessonId)
+    private async Task OpenTopicEditModal(Tema topic, Guid lessonId)
     {
         isEditing = true;
         editingTopicId = topic.Id;
         currentModifyingLessonId = lessonId;
+        uploadError = "";
         currentTopic = new CreateTemaRequest
         {
             LessonId = lessonId,
@@ -459,6 +564,9 @@
         };
         showTopicModal = true;
         shouldInitQuill = true;
+        // Cargar archivos existentes
+        archivosTema = await MaestroService.GetArchivosTemaAsync(topic.Id);
+        // Fix URLs for display (the service does this already, but ensure it)
     }
 
     private async Task SaveTopic()
@@ -510,6 +618,97 @@
             }
         }
         catch (Exception ex) { ShowAlert($"Error: {ex.Message}", "danger"); }
+    }
+
+    // --- ARCHIVOS DE APOYO ---
+    private async Task OnTopicFileSelected(InputFileChangeEventArgs e)
+    {
+        uploadError = "";
+        if (!editingTopicId.HasValue) return;
+
+        var file = e.File;
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf", ".doc", ".docx" };
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+        { uploadError = "Tipo de archivo no permitido. Use: JPG, PNG, PDF, DOC, DOCX"; return; }
+
+        if (file.Size > 3 * 1024 * 1024)
+        { uploadError = "El archivo supera el límite de 3 MB"; return; }
+
+        if (archivosTema.Count >= 3)
+        { uploadError = "Ya tienes 3 archivos adjuntos (límite máximo)"; return; }
+
+        uploadingFile = true;
+        StateHasChanged();
+        try
+        {
+            // Determine MIME type
+            var mimeType = extension switch
+            {
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "image/jpeg"
+            };
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 3 * 1024 * 1024);
+            var archivo = await MaestroService.SubirArchivoTemaAsync(editingTopicId.Value, stream, file.Name, mimeType);
+
+            if (archivo != null)
+            {
+                archivosTema.Add(archivo);
+                uploadError = "";
+            }
+            else
+            {
+                uploadError = "No se pudo subir el archivo. Verifica el límite de 3 archivos o intenta de nuevo.";
+            }
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            uploadingFile = false;
+        }
+    }
+
+    private async Task EliminarArchivoTema(Guid archivoId)
+    {
+        var ok = await MaestroService.EliminarArchivoTemaAsync(archivoId);
+        if (ok)
+            archivosTema.RemoveAll(a => a.Id == archivoId);
+        else
+            uploadError = "No se pudo eliminar el archivo.";
+    }
+
+    // --- HELPERS DE ARCHIVO ---
+    private string GetFileIcon(string tipo) => tipo.ToLower() switch
+    {
+        "pdf" => "bi-file-earmark-pdf-fill",
+        "doc" or "docx" => "bi-file-earmark-word-fill",
+        "png" or "jpg" or "jpeg" or "webp" or "gif" => "bi-file-earmark-image-fill",
+        _ => "bi-file-earmark-fill"
+    };
+
+    private string GetFileIconClass(string tipo) => tipo.ToLower() switch
+    {
+        "pdf" => "file-pdf",
+        "doc" or "docx" => "file-word",
+        "png" or "jpg" or "jpeg" or "webp" or "gif" => "file-image",
+        _ => "file-other"
+    };
+
+    private string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
     }
 
     private void ShowAlert(string message, string type)
