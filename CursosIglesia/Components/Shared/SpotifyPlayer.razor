@@ -1,0 +1,131 @@
+@* ============================================================
+   MusicPlayer.razor — Reproductor flotante de música católica
+   Usa YouTube embeds — NO requiere login de ningún tipo.
+   Música católica en español 🇲🇽
+   Aparece en TODAS las páginas via Routes.razor
+   ============================================================ *@
+
+<div class="music-fab @(isOpen ? "active" : "")" @onclick="TogglePlayer" title="🎵 Música de Estudio">
+    <div class="music-fab-bg"></div>
+    @if (isPlaying)
+    {
+        <div class="music-fab-bars">
+            <span></span><span></span><span></span>
+        </div>
+    }
+    else
+    {
+        <i class="bi bi-music-note-beamed music-fab-icon"></i>
+    }
+</div>
+
+@* Backdrop — solo visible cuando está abierto *@
+<div class="music-backdrop @(isOpen ? "visible" : "")" @onclick="TogglePlayer"></div>
+
+@* Panel — SIEMPRE en el DOM para que el iframe siga reproduciéndose *@
+<div class="music-panel @(isOpen ? "open" : "")">
+    <div class="music-panel-header">
+        <div class="music-panel-brand">
+            <div class="music-brand-icon">
+                <i class="bi bi-headphones"></i>
+            </div>
+            <div>
+                <span class="music-panel-title">Música Católica</span>
+                <span class="music-panel-subtitle">Alabanza, Adoración & Estudio 🕊️</span>
+            </div>
+        </div>
+        <button class="music-panel-close" @onclick="TogglePlayer">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div class="music-panel-body">
+        @* Selector de música *@
+        <div class="music-playlist-tabs">
+            @foreach (var track in tracks)
+            {
+                <button class="music-tab @(track.Id == selectedId ? "active" : "")"
+                        @onclick="() => SelectTrack(track)">
+                    <i class="bi @track.Icon"></i>
+                    <span>@track.Name</span>
+                </button>
+            }
+        </div>
+
+        @* Descripción del track actual *@
+        <div class="music-track-desc">
+            <i class="bi @CurrentTrack.Icon"></i>
+            <span>@CurrentTrack.Description</span>
+        </div>
+
+        @* Embed de YouTube — SIEMPRE montado para no interrumpir la música *@
+        <div class="music-embed-container">
+            <iframe src="@GetEmbedUrl()"
+                    width="100%" height="220" frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen
+                    loading="lazy"
+                    style="border-radius: 12px; border: none;">
+            </iframe>
+        </div>
+
+        <div class="music-panel-tip">
+            <i class="bi bi-lightbulb"></i>
+            <span>Música gratuita sin necesidad de cuenta. Cierra el panel y la música sigue. 🎶</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isOpen = false;
+    private bool isPlaying = false;
+
+    private class MusicTrack
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string VideoId { get; set; } = "";
+    }
+
+    // Videos elegidos por el usuario — Música católica en español 🇲🇽
+    private List<MusicTrack> tracks = new()
+    {
+        new() { Id = "alabanzas", Name = "Alabanzas", Icon = "bi-heart-fill",
+                Description = "Alabanzas católicas para fortalecer tu fe",
+                VideoId = "krOmljalq0A" },
+        new() { Id = "adoracion", Name = "Adoración", Icon = "bi-star-fill",
+                Description = "Cantos de adoración católica",
+                VideoId = "hQOBZzMkc5c" },
+        new() { Id = "sangre", Name = "Sangre y Agua", Icon = "bi-droplet-fill",
+                Description = "Canciones católicas — Sangre y Agua",
+                VideoId = "p_9AQYpvHLg" },
+        new() { Id = "oracion", Name = "Oración", Icon = "bi-pray",
+                Description = "Música católica para oración y meditación",
+                VideoId = "zZyVAcqDUIs" },
+        new() { Id = "lofi", Name = "Lo-fi Estudio", Icon = "bi-headphones",
+                Description = "Radio lo-fi relajante para estudiar con enfoque",
+                VideoId = "jfKfPfyJRdk" }
+    };
+
+    private string selectedId = "alabanzas";
+    private MusicTrack CurrentTrack => tracks.First(t => t.Id == selectedId);
+
+    private void TogglePlayer()
+    {
+        isOpen = !isOpen;
+        if (isOpen) isPlaying = true;
+    }
+
+    private void SelectTrack(MusicTrack track)
+    {
+        selectedId = track.Id;
+        isPlaying = true;
+    }
+
+    private string GetEmbedUrl()
+    {
+        return $"https://www.youtube.com/embed/{CurrentTrack.VideoId}?rel=0&modestbranding=1";
+    }
+}
