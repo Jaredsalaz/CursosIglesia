@@ -221,8 +221,9 @@ public class AuthService : IAuthService
                     JoinedDate = DateTime.Now
                 };
 
-                var token = GenerateJwtToken(newUser);
-                return new AuthResponse { Success = true, Profile = newUser, Token = token };
+                // Se retorna success pero sin token
+                // var token = GenerateJwtToken(newUser);
+                return new AuthResponse { Success = true, Profile = newUser, Message = "Registro exitoso." };
             }
 
             return new AuthResponse
@@ -245,5 +246,74 @@ public class AuthService : IAuthService
     {
         // Stateless API logout is handled by the client by removing the token
         return Task.CompletedTask;
+    }
+
+    public async Task<AuthResponse> ActivateUserAsync(string email)
+    {
+        try
+        {
+            using IDbConnection db = new SqlConnection(_connectionString);
+            var parameters = new DynamicParameters();
+            parameters.Add("@Accion", "ActivarUsuario");
+            parameters.Add("@Email", email);
+            parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+            parameters.Add("@MensajeError", dbType: DbType.String, size: 200, direction: ParameterDirection.Output);
+
+            await db.ExecuteAsync("usp_AutenticacionYUsuarios", parameters, commandType: CommandType.StoredProcedure);
+
+            bool success = parameters.Get<bool>("@Exito");
+            return new AuthResponse
+            {
+                Success = success,
+                Message = success ? "Usuario activado con éxito." : (parameters.Get<string>("@MensajeError") ?? "Error al activar usuario")
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Error: {ex.Message}" };
+        }
+    }
+
+    public async Task<AuthResponse> ResetPasswordWithEmailAsync(string email, string newPasswordHash)
+    {
+        try
+        {
+            using IDbConnection db = new SqlConnection(_connectionString);
+            var parameters = new DynamicParameters();
+            parameters.Add("@Accion", "CambiarPassword");
+            parameters.Add("@Email", email);
+            parameters.Add("@PasswordHash", newPasswordHash);
+            parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+            parameters.Add("@MensajeError", dbType: DbType.String, size: 200, direction: ParameterDirection.Output);
+
+            await db.ExecuteAsync("usp_AutenticacionYUsuarios", parameters, commandType: CommandType.StoredProcedure);
+
+            bool success = parameters.Get<bool>("@Exito");
+            return new AuthResponse
+            {
+                Success = success,
+                Message = success ? "Contraseña actualizada exitosamente." : (parameters.Get<string>("@MensajeError") ?? "Error al cambiar contraseña")
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse { Success = false, Message = $"Error: {ex.Message}" };
+        }
+    }
+
+    public async Task<bool> UserExistsAsync(string email)
+    {
+        try
+        {
+            using IDbConnection db = new SqlConnection(_connectionString);
+            var exists = await db.QueryFirstOrDefaultAsync<int>(
+                "SELECT 1 FROM Usuarios WHERE Email = @Email",
+                new { Email = email });
+            return exists == 1;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

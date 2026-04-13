@@ -66,9 +66,23 @@
                         <span class="step-label">Datos personales</span>
                     </div>
                     <div class="auth-step-line @(ViewModel.CurrentStep > 1 ? "active" : "")"></div>
-                    <div class="auth-step @(ViewModel.CurrentStep >= 2 ? "active" : "")">
-                        <div class="step-number"><span>2</span></div>
+                    <div class="auth-step @(ViewModel.CurrentStep >= 2 ? "active" : "") @(ViewModel.CurrentStep > 2 ? "completed" : "")">
+                        <div class="step-number">
+                            @if (ViewModel.CurrentStep > 2)
+                            {
+                                <i class="bi bi-check-lg"></i>
+                            }
+                            else
+                            {
+                                <span>2</span>
+                            }
+                        </div>
                         <span class="step-label">Seguridad</span>
+                    </div>
+                    <div class="auth-step-line @(ViewModel.CurrentStep > 2 ? "active" : "")"></div>
+                    <div class="auth-step @(ViewModel.CurrentStep >= 3 ? "active" : "")">
+                        <div class="step-number"><span>3</span></div>
+                        <span class="step-label">Verificar</span>
                     </div>
                 </div>
 
@@ -215,10 +229,47 @@
                         </div>
                     }
 
-                    <div class="auth-footer-text">
-                        ¿Ya tienes cuenta?
-                        <a href="/login" class="auth-link-bold">Iniciar Sesión</a>
-                    </div>
+                    @* ===== STEP 3: OTP Verificación ===== *@
+                    @if (ViewModel.CurrentStep == 3)
+                    {
+                        <div class="auth-step-content" style="text-align: center;">
+                            <i class="bi bi-envelope-open" style="font-size: 3rem; color: #7b2d26; margin-bottom: 1rem; display: block;"></i>
+                            <h3 style="margin-bottom: 0.5rem; color: #2e3192;">Verificación de Correo</h3>
+                            <p style="color: #666; margin-bottom: 1.5rem; font-size: 0.9rem;">Enviamos un código numérico a <strong>@ViewModel.RegisterModel.Email</strong>.</p>
+                            
+                            <div class="auth-input-group" style="text-align: left;">
+                                <label for="otpCode">Ingresa el código</label>
+                                <div class="auth-input-wrapper">
+                                    <i class="bi bi-key"></i>
+                                    <input type="text" id="otpCode" placeholder="Ej: 123456"
+                                           maxlength="6"
+                                           @bind="ViewModel.OtpCode"
+                                           @bind:event="oninput" style="letter-spacing: 5px; font-weight: bold; font-size: 1.1rem; text-align: center;" />
+                                </div>
+                            </div>
+
+                            <button class="auth-submit-btn" @onclick="HandleVerifyOtp" disabled="@ViewModel.IsSubmitting" style="margin-top: 1rem;">
+                                @if (ViewModel.IsSubmitting)
+                                {
+                                    <span class="auth-spinner"></span>
+                                    <span>Verificando...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-circle"></i>
+                                    <span>Activar y Entrar</span>
+                                }
+                            </button>
+                        </div>
+                    }
+
+                    @if (ViewModel.CurrentStep < 3)
+                    {
+                        <div class="auth-footer-text">
+                            ¿Ya tienes cuenta?
+                            <a href="/login" class="auth-link-bold">Iniciar Sesión</a>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -244,12 +295,23 @@
     private async Task HandleRegister()
     {
         var success = await ViewModel.RegisterAsync();
+        
+        if (success)
+        {
+            ViewModel.CurrentStep = 3;
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleVerifyOtp()
+    {
+        var success = await ViewModel.VerifyOtpAsync();
         StateHasChanged();
 
         if (success)
         {
-            await Task.Delay(1200);
-            NavigationManager.NavigateTo("/");
+            await Task.Delay(1500);
+            NavigationManager.NavigateTo("/"); // <- Directo al inicio porque ya hizo auto-login
         }
     }
 }

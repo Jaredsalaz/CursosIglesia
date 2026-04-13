@@ -7,6 +7,7 @@ public interface IAuthService
 {
     Task<AuthResponse> LoginAsync(LoginRequest request);
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
+    Task<AuthResponse> VerifyRegistrationOtpAsync(VerifyOtpRequest request);
     Task LogoutAsync();
     bool IsAuthenticated { get; }
     UserProfile? CurrentUser { get; }

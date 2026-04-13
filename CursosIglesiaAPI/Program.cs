@@ -12,6 +12,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 
 // Register Services (Dependency Injection)
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ITestimonialService, TestimonialService>();

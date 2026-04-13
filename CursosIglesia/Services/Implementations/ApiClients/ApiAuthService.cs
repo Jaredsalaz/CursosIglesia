@@ -100,17 +100,15 @@ public class ApiAuthService : IAuthService
         var response = await _httpClient.PostAsJsonAsync("api/auth/register", request);
         var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
 
-        if (result?.Success == true && !string.IsNullOrEmpty(result.Token))
-        {
-            _tokenStore.Token = result.Token;
-            await _localStorage.SetItemAsync("authToken", result.Token);
-            await _localStorage.SetItemAsync("userProfile", result.Profile);
-            ((CustomAuthenticationStateProvider)_authStateProvider).NotifyUserAuthentication(result.Token);
-            CurrentUser = result.Profile;
-            NotifyStateChange();
-        }
-
+        // Ya no devuelve token, ahora devuelve solo Success y Message para enviar correo.
         return result ?? new AuthResponse { Success = false, Message = "Error de conexión" };
+    }
+
+    public async Task<AuthResponse> VerifyRegistrationOtpAsync(VerifyOtpRequest request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("api/auth/verify-registration-otp", request);
+        var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        return result ?? new AuthResponse { Success = false, Message = "Error de conexión HTTP" };
     }
 
     public async Task LogoutAsync()

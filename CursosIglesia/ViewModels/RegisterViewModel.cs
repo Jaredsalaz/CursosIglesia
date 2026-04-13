@@ -16,6 +16,13 @@ public class RegisterViewModel : ViewModelBase
 
     public RegisterModel RegisterModel { get; set; } = new();
 
+    private string _otpCode = string.Empty;
+    public string OtpCode
+    {
+        get => _otpCode;
+        set => SetProperty(ref _otpCode, value);
+    }
+
     private bool _isSubmitting;
     public bool IsSubmitting
     {
@@ -112,7 +119,7 @@ public class RegisterViewModel : ViewModelBase
 
             if (result.Success)
             {
-                SuccessMessage = $"¡Cuenta creada! Bienvenido, {result.Profile?.FirstName}. Redirigiendo...";
+                SuccessMessage = "Revisa tu correo para obtener el código de seguridad.";
                 return true;
             }
 
@@ -121,7 +128,57 @@ public class RegisterViewModel : ViewModelBase
         }
         catch (Exception)
         {
-            ErrorMessage = "Ocurrió un error inesperado. Inténtalo de nuevo.";
+            ErrorMessage = "Ocurrió un error inesperado al enviar los datos. Inténtalo de nuevo.";
+            return false;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    public async Task<bool> VerifyOtpAsync()
+    {
+        ErrorMessage = null;
+        SuccessMessage = null;
+        IsSubmitting = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(OtpCode) || OtpCode.Length < 4)
+            {
+                ErrorMessage = "El código ingresado no es válido.";
+                return false;
+            }
+
+            var request = new VerifyOtpRequest
+            {
+                Email = RegisterModel.Email,
+                Otp = OtpCode
+            };
+
+            var result = await _authService.VerifyRegistrationOtpAsync(request);
+
+            if (result.Success)
+            {
+                // ✅ ¡Iniciar sesión automáticamente tras verificar!
+                var loginRequest = new LoginRequest 
+                { 
+                    Email = RegisterModel.Email, 
+                    Password = RegisterModel.Password 
+                };
+                await _authService.LoginAsync(loginRequest);
+
+                SuccessMessage = "¡Cuenta verificada exitosamente! Redirigiendo...";
+                return true;
+            }
+
+            ErrorMessage = result.Message;
+            return false;
+        }
+        catch
+        {
+            ErrorMessage = "Error verificando el código. Revisa tu conexión.";
             return false;
         }
         finally
