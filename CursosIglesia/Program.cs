@@ -44,13 +44,16 @@ builder.Services.AddHttpClient<ICategoryService, ApiCategoryService>(client => c
     .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
 builder.Services.AddScoped<ITestimonialService, ApiTestimonialService>();
-builder.Services.AddHttpClient<ITestimonialService, ApiTestimonialService>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<ITestimonialService, ApiTestimonialService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
 builder.Services.AddScoped<IEnrollmentService, ApiEnrollmentService>();
-builder.Services.AddHttpClient<IEnrollmentService, ApiEnrollmentService>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<IEnrollmentService, ApiEnrollmentService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
 builder.Services.AddScoped<IUserService, ApiUserService>();
-builder.Services.AddHttpClient<IUserService, ApiUserService>(client => client.BaseAddress = new Uri(apiBaseUrl));
+builder.Services.AddHttpClient<IUserService, ApiUserService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
 builder.Services.AddScoped<IMaestroService, ApiMaestroService>();
 builder.Services.AddHttpClient<IMaestroService, ApiMaestroService>(client => client.BaseAddress = new Uri(apiBaseUrl))

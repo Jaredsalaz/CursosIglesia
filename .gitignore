@@ -142,3 +142,4 @@ usp_temas.sql
 CursosIglesiaAPI/uploads/*
 !CursosIglesiaAPI/uploads/.gitkeep
 
+!usp_GestionTestimonios.sql

@@ -16,24 +16,65 @@ public class TestimonialService : ITestimonialService
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
     }
 
-    public async Task<List<Testimonial>> GetTestimonialsAsync(int count = 5)
+    public async Task<List<Testimonial>> GetTestimonialsAsync(int count = 6)
     {
         using IDbConnection db = new SqlConnection(_connectionString);
         var testimonials = await db.QueryAsync<Testimonial>(
-            @"SELECT TOP (@Count) 
-                t.IdTestimonio AS Id, 
-                u.Nombre + ' ' + u.Apellidos AS StudentName, 
-                u.UrlAvatar AS StudentImageUrl, 
-                c.Titulo AS CourseName, 
-                t.Comentario AS Comment, 
-                t.Calificacion AS Rating, 
-                t.FechaTestimonio AS Date 
-            FROM Testimonios t
-            JOIN Usuarios u ON t.IdUsuario = u.IdUsuario
-            JOIN Cursos c ON t.IdCurso = c.IdCurso
-            ORDER BY t.FechaTestimonio DESC",
-            new { Count = count }
+            "usp_GestionTestimonios",
+            new { Accion = "ListarAprobados", Top = count },
+            commandType: CommandType.StoredProcedure
         );
         return testimonials.ToList();
+    }
+
+    public async Task<List<Testimonial>> GetByCourseIdAsync(Guid courseId, bool onlyApproved = true)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var testimonials = await db.QueryAsync<Testimonial>(
+            "usp_GestionTestimonios",
+            new { Accion = "ListarPorCurso", IdCurso = courseId },
+            commandType: CommandType.StoredProcedure
+        );
+        return testimonials.ToList();
+    }
+
+    public async Task<List<Testimonial>> GetPendingTestimonialsAsync()
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var testimonials = await db.QueryAsync<Testimonial>(
+            "usp_GestionTestimonios",
+            new { Accion = "ListarPendientes" },
+            commandType: CommandType.StoredProcedure
+        );
+        return testimonials.ToList();
+    }
+
+    public async Task<bool> AddTestimonialAsync(Guid userId, Guid courseId, string comment, int rating)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var parameters = new DynamicParameters();
+        parameters.Add("@Accion", "InsertarOActualizar");
+        parameters.Add("@IdUsuario", userId);
+        parameters.Add("@IdCurso", courseId);
+        parameters.Add("@Comentario", comment);
+        parameters.Add("@Calificacion", rating);
+        parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        parameters.Add("@MensajeError", dbType: DbType.String, size: -1, direction: ParameterDirection.Output);
+
+        await db.ExecuteAsync("usp_GestionTestimonios", parameters, commandType: CommandType.StoredProcedure);
+        return parameters.Get<bool>("@Exito");
+    }
+
+    public async Task<bool> ApproveTestimonialAsync(Guid testimonialId)
+    {
+        using IDbConnection db = new SqlConnection(_connectionString);
+        var parameters = new DynamicParameters();
+        parameters.Add("@Accion", "Aprobar");
+        parameters.Add("@IdTestimonio", testimonialId);
+        parameters.Add("@Exito", dbType: DbType.Boolean, direction: ParameterDirection.Output);
+        parameters.Add("@MensajeError", dbType: DbType.String, size: -1, direction: ParameterDirection.Output);
+
+        await db.ExecuteAsync("usp_GestionTestimonios", parameters, commandType: CommandType.StoredProcedure);
+        return parameters.Get<bool>("@Exito");
     }
 }

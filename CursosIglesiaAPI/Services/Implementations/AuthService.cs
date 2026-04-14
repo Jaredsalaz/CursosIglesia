@@ -141,7 +141,7 @@ public class AuthService : IAuthService
                 if (string.IsNullOrWhiteSpace(roleName))
                 {
                     roleName = await db.QueryFirstOrDefaultAsync<string>(
-                        "SELECT Nombre FROM Roles WHERE Id = @IdRol",
+                        "SELECT NombreRol FROM Roles WHERE IdRol = @IdRol",
                         new { dbUser.IdRol }
                     ) ?? "Estudiante";
                 }

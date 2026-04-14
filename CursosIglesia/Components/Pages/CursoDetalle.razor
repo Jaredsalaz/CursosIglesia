@@ -205,9 +205,11 @@ else
                                 <a href="/aprender/@course.Id" class="btn-catholic w-100 justify-content-center mb-3" style="padding:0.85rem">
                                     <i class="bi bi-play-fill"></i> Continuar Curso
                                 </a>
-                                <a href="/mis-cursos" class="btn btn-outline-secondary w-100 mb-3">
-                                    <i class="bi bi-journal-bookmark me-1"></i> Ver Mis Cursos
-                                </a>
+                                <div class="text-center mb-3">
+                                    <span class="badge bg-success-subtle text-success p-2 w-100 border border-success-subtle">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Ya estás inscrito
+                                    </span>
+                                </div>
                             }
                             else
                             {
@@ -223,9 +225,6 @@ else
                                         <i class="bi bi-play-circle"></i>
                                         @(course.IsFree ? "Inscribirse Gratis" : "Comprar Curso")
                                     }
-                                </button>
-                                <button class="btn btn-outline-secondary w-100 mb-3">
-                                    <i class="bi bi-heart me-1"></i> Agregar a Favoritos
                                 </button>
                             }
                             <hr />
@@ -246,11 +245,145 @@ else
                                     <span class="text-muted"><i class="bi bi-people me-2"></i>Estudiantes</span>
                                     <strong>@course.StudentsEnrolled.ToString("N0")</strong>
                                 </li>
-                                <li class="d-flex justify-content-between py-2" style="font-size:0.9rem">
-                                    <span class="text-muted"><i class="bi bi-translate me-2"></i>Idioma</span>
-                                    <strong>Español</strong>
-                                </li>
                             </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Testimonials Section -->
+            <div class="mt-5 pt-4 border-top">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h3 style="font-size:1.4rem">Lo que dicen los alumnos</h3>
+                                <div class="decorative-divider" style="justify-content:flex-start;margin-left:0;margin-bottom:0">
+                                    <i class="bi bi-cross"></i>
+                                </div>
+                            </div>
+                            @if (ViewModel.IsEnrolled && !ViewModel.IsSubmittingTestimonial)
+                            {
+                                <button class="btn btn-catholic-sm" type="button" data-bs-toggle="collapse" data-bs-target="#reviewForm">
+                                    <i class="bi bi-pencil-square me-1"></i> Escribir reseña
+                                </button>
+                            }
+                        </div>
+
+                        <!-- Add Review Form -->
+                        @if (ViewModel.IsEnrolled)
+                        {
+                            <div class="collapse mb-4" id="reviewForm">
+                                <div class="card card-body border-0 shadow-sm bg-light" style="border-radius: var(--radius-md)">
+                                    <h5 class="mb-3">Tu opinión es importante</h5>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label d-block text-muted small">Calificación</label>
+                                        <div class="star-rating-input">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                var starValue = i;
+                                                <i class="bi @(ViewModel.NewRating >= starValue ? "bi-star-fill text-warning" : "bi-star text-muted")"
+                                                   style="cursor: pointer; font-size: 1.5rem;"
+                                                   @onclick="() => ViewModel.NewRating = starValue"></i>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="reviewComment" class="form-label text-muted small">Comentario (mín. 10 caracteres)</label>
+                                        <textarea class="form-control border-0" id="reviewComment" rows="3" 
+                                                  placeholder="Cuéntanos tu experiencia con este curso..."
+                                                  @bind="ViewModel.NewComment"></textarea>
+                                    </div>
+
+                                    <div class="text-end">
+                                        <button class="btn btn-catholic-sm" @onclick="ViewModel.SubmitTestimonialAsync" disabled="@ViewModel.IsSubmittingTestimonial">
+                                            @if (ViewModel.IsSubmittingTestimonial)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                                <span>Enviando...</span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-send-fill me-1"></i> <span>Enviar Reseña</span>
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(ViewModel.TestimonialSuccessMessage))
+                            {
+                                <div class="alert alert-success border-0 shadow-sm mb-4" style="border-radius: var(--radius-sm)">
+                                    <i class="bi bi-check-circle-fill me-2"></i> @ViewModel.TestimonialSuccessMessage
+                                </div>
+                            }
+                        }
+
+                        <!-- Testimonials List -->
+                        @if (!ViewModel.Testimonials.Any())
+                        {
+                            <div class="text-center py-4 bg-light rounded" style="border: 2px dashed #dee2e6">
+                                <p class="text-muted mb-0">Todavía no hay reseñas para este curso. ¡Sé el primero en calificar!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="testimonials-list d-flex flex-column gap-3">
+                                @foreach (var review in ViewModel.Testimonials)
+                                {
+                                    <div class="testimonial-card p-3 shadow-sm" style="background:#fff; border-radius:var(--radius-md)">
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <img src="@review.StudentImageUrl" alt="@review.StudentName" 
+                                                     style="width:40px;height:40px;border-radius:50%;object-fit:cover" />
+                                                <div>
+                                                    <div class="fw-bold small">@review.StudentName</div>
+                                                    <div class="text-muted" style="font-size:0.7rem">@review.Date.ToString("MMM dd, yyyy")</div>
+                                                </div>
+                                            </div>
+                                            <div class="rating-stars small">
+                                                @for (int i = 1; i <= 5; i++)
+                                                {
+                                                    <i class="bi @(i <= review.Rating ? "bi-star-fill text-warning" : "bi-star text-muted")"></i>
+                                                }
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-secondary" style="font-style:italic">"@review.Comment"</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Statistics Summary -->
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm p-4" style="border-radius:var(--radius-md); background: linear-gradient(135deg, #ffffff, #f8f9fa)">
+                            <h5 class="mb-3" style="font-size:1.1rem">Calificación general</h5>
+                            <div class="text-center mb-3">
+                                <div style="font-size:3rem; font-weight:700; color:var(--color-primary); line-height:1">@course.Rating.ToString("0.0")</div>
+                                <div class="rating-stars mb-1">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi @(i <= Math.Round(course.Rating) ? "bi-star-fill text-warning" : (i - course.Rating < 0.8 ? "bi-star-half text-warning" : "bi-star text-muted"))" style="font-size:1.2rem"></i>
+                                    }
+                                </div>
+                                <div class="text-muted small">Basado en @course.RatingsCount reseñas</div>
+                            </div>
+                            
+                            <!-- Rating Bars Placeholder -->
+                            <div class="rating-bars d-flex flex-column gap-2 mt-3">
+                                @for (int i = 5; i >= 1; i--)
+                                {
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="small text-muted" style="width:15px">@i</span>
+                                        <div class="progress flex-grow-1" style="height:6px">
+                                            <div class="progress-bar bg-warning" style="width: @(i == 5 ? "85%" : (i == 4 ? "10%" : "2%"))"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
