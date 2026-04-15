@@ -1,0 +1,53 @@
+@using CursosIglesia.Models.DTOs
+@inject IDailyVerseService DailyVerseService
+
+<div class="verse-container">
+    @if (IsLoading)
+    {
+        <div class="verse-card loading-placeholder">
+            <div class="spinner"></div>
+        </div>
+    }
+    else if (Verse != null)
+    {
+        <div class="verse-card fade-in">
+            <div class="verse-header">
+                <span class="verse-icon">✝️</span>
+                <h3 class="verse-title">Versículo del Día</h3>
+            </div>
+            <div class="verse-content">
+                <p class="verse-text">@Verse.Text</p>
+                <p class="verse-reference">— @Verse.Reference</p>
+                @if (!string.IsNullOrEmpty(Verse.Theme))
+                {
+                    <p class="verse-theme">@Verse.Theme</p>
+                }
+            </div>
+            <div class="verse-footer">
+                <p class="verse-date">@Verse.Date.ToString("dddd, d 'de' MMMM", new System.Globalization.CultureInfo("es-ES"))</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DailyVerseDTO? Verse;
+    private bool IsLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Verse = await DailyVerseService.GetDailyVerseAsync();
+        }
+        catch (Exception ex)
+        {
+            // Log error silently
+            Console.WriteLine($"Error loading daily verse: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

@@ -67,6 +67,8 @@ builder.Services.AddScoped<ApiQuizService>();
 builder.Services.AddHttpClient<ApiQuizService>(client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
+builder.Services.AddHttpClient<IDailyVerseService, ApiDailyVerseService>(client => client.BaseAddress = new Uri(apiBaseUrl));
+
 // Register ViewModels
 builder.Services.AddScoped<HomeViewModel>();
 builder.Services.AddScoped<CoursesViewModel>();

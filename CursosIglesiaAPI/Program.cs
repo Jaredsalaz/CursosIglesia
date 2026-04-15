@@ -1,5 +1,7 @@
 using CursosIglesia.Services.Interfaces;
 using CursosIglesia.Services.Implementations;
+using CursosIglesiaAPI.Services.Interfaces;
+using CursosIglesiaAPI.Services.Implementations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -25,6 +27,8 @@ builder.Services.AddScoped<IMaestroService, MaestroService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<GeminiService>();
+builder.Services.AddScoped<IDailyVerseService, DailyVerseService>();
+builder.Services.AddHttpClient<DailyVerseService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");
