@@ -1,0 +1,327 @@
+@page "/certificados"
+@using CursosIglesia.ViewModels
+@using CursosIglesia.Models.DTOs
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject CertificatesViewModel ViewModel
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+
+<AuthorizeView>
+    <Authorized>
+        <div class="certificates-container">
+            <!-- Header -->
+            <div class="certificates-header">
+                <h1>📜 Mis Certificados</h1>
+                <p class="subtitle">Descarga y comparte tus certificados de cursos completados</p>
+            </div>
+
+            <!-- Messages -->
+            @if (!string.IsNullOrEmpty(ViewModel.ErrorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @ViewModel.ErrorMessage
+                    <button type="button" class="btn-close" @onclick="@(() => ViewModel.ErrorMessage = null)"></button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(ViewModel.SuccessMessage))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @ViewModel.SuccessMessage
+                    <button type="button" class="btn-close" @onclick="@(() => ViewModel.SuccessMessage = null)"></button>
+                </div>
+            }
+
+            <!-- Loading -->
+            @if (ViewModel.IsLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            }
+
+            <!-- Certificates Grid -->
+            @if (!ViewModel.IsLoading)
+            {
+                @if (ViewModel.MyCertificates.Count == 0)
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <h3>No tienes certificados aún</h3>
+                        <p>Completa un curso para obtener tu certificado profesional</p>
+                        <a href="/cursos" class="btn btn-primary">Ver Cursos Disponibles</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="certificates-grid">
+                        @foreach (var cert in ViewModel.MyCertificates)
+                        {
+                            <div class="certificate-card">
+                                <!-- Header de tarjeta -->
+                                <div class="card-header-cert">
+                                    <i class="fas fa-certificate"></i>
+                                    <span class="cert-number">@cert.NumeroCertificado</span>
+                                </div>
+
+                                <!-- Contenido -->
+                                <div class="card-body-cert">
+                                    <h3 class="course-title">@cert.NombreCurso</h3>
+
+                                    <div class="cert-info">
+                                        <p>
+                                            <strong>Estudiante:</strong> @cert.NombreEstudiante
+                                        </p>
+                                        <p>
+                                            <strong>Instructor:</strong> @cert.NombreInstructor
+                                        </p>
+                                        <p>
+                                            <strong>Emitido:</strong> @cert.FechaOtorgamiento.ToString("dd MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                                        </p>
+                                    </div>
+
+                                    <!-- Botones de acción -->
+                                    <div class="action-buttons">
+                                        <button
+                                            class="btn btn-sm btn-outline-primary"
+                                            @onclick="@(async () => await DownloadCertificateAsync(cert))">
+                                            <i class="fas fa-download"></i> Descargar PDF
+                                        </button>
+
+                                        <button
+                                            class="btn btn-sm btn-outline-secondary"
+                                            @onclick="@(async () => await ShareCertificateAsync(cert))">
+                                            <i class="fas fa-share-alt"></i> Compartir
+                                        </button>
+                                    </div>
+
+                                    <!-- QR Code si existe -->
+                                    @if (!string.IsNullOrEmpty(cert.CodigoQR))
+                                    {
+                                        <div class="qr-container">
+                                            <small>Escanea para verificar</small>
+                                            <img src="@cert.CodigoQR" alt="Código QR" class="qr-code" />
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="text-center mt-5">
+            <h3>Acceso Restringido</h3>
+            <p>Debes iniciar sesión para ver tus certificados</p>
+            <a href="/login" class="btn btn-primary">Iniciar Sesión</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadMyCertificatesAsync();
+    }
+
+    private async Task DownloadCertificateAsync(CertificateResponse certificate)
+    {
+        ViewModel.IsLoading = true;
+        try
+        {
+            var pdfBytes = await ViewModel._certificateService.DownloadCertificatePdfAsync(certificate.IdCertificado);
+
+            if (pdfBytes.Length > 0)
+            {
+                // Descargar usando JavaScript interop
+                await JSRuntime.InvokeVoidAsync("downloadFile", pdfBytes, $"Certificado-{certificate.NumeroCertificado}.pdf");
+                ViewModel.SuccessMessage = "Certificado descargado exitosamente";
+            }
+            else
+            {
+                ViewModel.ErrorMessage = "Error al descargar el certificado";
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            ViewModel.IsLoading = false;
+        }
+    }
+
+    private async Task ShareCertificateAsync(CertificateResponse certificate)
+    {
+        var verificationLink = ViewModel.GetVerificationLink(certificate.NumeroCertificado);
+        var shareText = $"He completado el curso '{certificate.NombreCurso}' en la Plataforma de Formación Católica. Verifica mi certificado: {verificationLink}";
+
+        try
+        {
+            // Copiar al portapapeles
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", shareText);
+            ViewModel.SuccessMessage = "Link copiado al portapapeles";
+        }
+        catch
+        {
+            ViewModel.ErrorMessage = "No se pudo copiar el link";
+        }
+    }
+}
+
+<style>
+    .certificates-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .certificates-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .certificates-header h1 {
+        font-size: 2.5rem;
+        color: #1a3a52;
+        margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+        font-size: 1.1rem;
+        color: #666;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        margin: 2rem 0;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .certificates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+    }
+
+    .certificate-card {
+        background: white;
+        border: 2px solid #D4AF37;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .certificate-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(212, 175, 55, 0.2);
+    }
+
+    .card-header-cert {
+        background: linear-gradient(135deg, #704D14 0%, #8B6F47 100%);
+        color: white;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .card-header-cert i {
+        font-size: 1.5rem;
+    }
+
+    .cert-number {
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin-left: auto;
+    }
+
+    .card-body-cert {
+        padding: 1.5rem;
+    }
+
+    .course-title {
+        color: #1a3a52;
+        margin-bottom: 1rem;
+        font-size: 1.3rem;
+        font-weight: bold;
+    }
+
+    .cert-info {
+        background: #fefaf3;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .cert-info p {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .cert-info strong {
+        color: #704D14;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons .btn {
+        flex: 1;
+        font-size: 0.85rem;
+        border-radius: 6px;
+    }
+
+    .qr-container {
+        text-align: center;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+
+    .qr-container small {
+        display: block;
+        color: #999;
+        margin-bottom: 0.5rem;
+    }
+
+    .qr-code {
+        width: 100px;
+        height: 100px;
+        border: 2px solid #D4AF37;
+        border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+        .certificates-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .certificates-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+    }
+</style>

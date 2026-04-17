@@ -29,6 +29,7 @@ builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<GeminiService>();
 builder.Services.AddScoped<IDailyVerseService, DailyVerseService>();
 builder.Services.AddHttpClient<DailyVerseService>();
+builder.Services.AddScoped<ICertificateService, CertificateService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");

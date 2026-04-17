@@ -320,6 +320,19 @@ else if (ViewModel.Course != null)
                             </div>
                         }
 
+                        @if (ViewModel.Progress >= 100)
+                        {
+                            <div class="course-completed-alert">
+                                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-trophy-fill me-2"></i>
+                                    <strong>¡Felicidades!</strong> Has completado el curso exitosamente.
+                                    <a href="/certificados" class="btn btn-sm btn-success ms-2">
+                                        <i class="bi bi-download me-1"></i> Descargar Certificado
+                                    </a>
+                                </div>
+                            </div>
+                        }
+
                         <div class="lesson-action-buttons">
                             @if (!ViewModel.IsCurrentLessonCompleted)
                             {
@@ -329,18 +342,21 @@ else if (ViewModel.Course != null)
                                         Completar y Siguiente <i class="bi bi-chevron-right ms-1"></i>
                                     </button>
                                 }
-                                else 
+                                else
                                 {
                                     <div class="text-muted small">
                                         <i class="bi bi-info-circle me-1"></i> Pasa el test para continuar
                                     </div>
                                 }
                             }
-                            else 
+                            else
                             {
-                                <button class="btn-catholic" @onclick="CompleteAndNext">
-                                    Siguiente <i class="bi bi-chevron-right ms-1"></i>
-                                </button>
+                                @if (ViewModel.Progress < 100)
+                                {
+                                    <button class="btn-catholic" @onclick="CompleteAndNext">
+                                        Siguiente <i class="bi bi-chevron-right ms-1"></i>
+                                    </button>
+                                }
                             }
                         </div>
                     </div>

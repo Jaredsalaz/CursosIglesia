@@ -69,6 +69,10 @@ builder.Services.AddHttpClient<ApiQuizService>(client => client.BaseAddress = ne
 
 builder.Services.AddHttpClient<IDailyVerseService, ApiDailyVerseService>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
+builder.Services.AddScoped<ICertificateService, ApiCertificateService>();
+builder.Services.AddHttpClient<ICertificateService, ApiCertificateService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
+
 // Register ViewModels
 builder.Services.AddScoped<HomeViewModel>();
 builder.Services.AddScoped<CoursesViewModel>();
@@ -78,6 +82,7 @@ builder.Services.AddScoped<LearningViewModel>();
 builder.Services.AddScoped<UserProfileViewModel>();
 builder.Services.AddScoped<LoginViewModel>();
 builder.Services.AddScoped<RegisterViewModel>();
+builder.Services.AddScoped<CertificatesViewModel>();
 
 var app = builder.Build();
 
