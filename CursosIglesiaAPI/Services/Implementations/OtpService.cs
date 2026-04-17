@@ -16,6 +16,7 @@ public class OtpService : IOtpService
 
     public string GenerateOtp(string email)
     {
+        email = email?.Trim() ?? "";
         var random = new Random();
         var otp = random.Next(100000, 999999).ToString();
 
@@ -32,6 +33,8 @@ public class OtpService : IOtpService
 
     public bool VerifyOtp(string email, string inputOtp)
     {
+        email = email?.Trim() ?? "";
+        inputOtp = inputOtp?.Trim() ?? "";
         var cacheKey = $"OTP_{email.ToLower()}";
         if (_cache.TryGetValue(cacheKey, out string? cachedOtp))
         {

@@ -88,10 +88,16 @@ public class AuthController : ControllerBase
     [HttpPost("verify-registration-otp")]
     public async Task<ActionResult<AuthResponse>> VerifyRegistrationOtp([FromBody] VerifyOtpRequest request)
     {
-        bool isValid = _otpService.VerifyOtp(request.Email, request.Otp);
-        if (!isValid) return BadRequest(new AuthResponse { Success = false, Message = "Código OTP inválido o expirado." });
+        _logger.LogInformation($"VerifyRegistrationOtp attempt for email: '{request?.Email}', otp code: '{request?.Otp}'");
+        
+        bool isValid = _otpService.VerifyOtp(request.Email?.Trim() ?? "", request.Otp?.Trim() ?? "");
+        if (!isValid) 
+        {
+            _logger.LogWarning($"OTP Validation failed for email: {request.Email}");
+            return BadRequest(new AuthResponse { Success = false, Message = "Código OTP inválido o expirado." });
+        }
 
-        var response = await _authService.ActivateUserAsync(request.Email);
+        var response = await _authService.ActivateUserAsync(request.Email?.Trim() ?? "");
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
