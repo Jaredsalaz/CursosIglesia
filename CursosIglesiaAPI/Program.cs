@@ -26,6 +26,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMaestroService, MaestroService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IQuizService, QuizService>();
+builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<GeminiService>();
 builder.Services.AddScoped<IDailyVerseService, DailyVerseService>();
 builder.Services.AddHttpClient<DailyVerseService>();

@@ -1,0 +1,124 @@
+@page "/certificados"
+@using Microsoft.AspNetCore.Authorization
+@using CursosIglesia.ViewModels
+@attribute [Authorize]
+@inject CertificatesViewModel ViewModel
+
+<PageTitle>Mis Certificados - Cursos Católicos</PageTitle>
+
+<div class="container py-5">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-5 fw-bold" style="color:var(--color-primary)">Mis Certificados</h1>
+            <p class="lead text-muted">Logros obtenidos en tu formación de la fe católica.</p>
+        </div>
+    </div>
+
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ViewModel.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            @ViewModel.ErrorMessage
+        </div>
+    }
+    else if (!ViewModel.Certificates.Any())
+    {
+        <div class="text-center py-5" style="background:#f8f9fa; border-radius:15px; border:2px dashed #ddd;">
+            <i class="bi bi-award text-muted mb-3" style="font-size: 4rem;"></i>
+            <h3 class="text-muted">Aún no tienes certificados</h3>
+            <p class="text-muted mb-4">Completa el 100% de algún curso para obtener tu primer certificado profesional.</p>
+            <a href="/cursos" class="btn-catholic px-4 py-2">Explorar Cursos</a>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var cert in ViewModel.Certificates)
+            {
+                <div class="col">
+                    <div class="card h-100 certificate-card">
+                        <div class="card-body text-center p-4">
+                            <div class="certificate-icon-wrapper mb-3">
+                                <i class="bi bi-patch-check-fill certificate-icon"></i>
+                            </div>
+                            <h4 class="card-title fw-bold" style="color:var(--color-primary)">@cert.NombreCurso</h4>
+                            <p class="text-muted small mb-2">Otorgado a:</p>
+                            <h5 class="fw-bold mb-3">@cert.NombreEstudiante</h5>
+                            
+                            <hr class="certificate-divider" />
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3 text-start small text-muted">
+                                <div>
+                                    <div><i class="bi bi-calendar3 me-1"></i> Emisión:</div>
+                                    <div class="fw-bold">@cert.FechaOtorgamiento.ToString("dd MMM, yyyy")</div>
+                                </div>
+                                <div>
+                                    <div><i class="bi bi-upc-scan me-1"></i> ID:</div>
+                                    <div class="fw-bold">@cert.NumeroCertificado</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent border-0 p-3 text-center">
+                            <button class="btn-gold w-100" @onclick="() => Download(cert.IdCertificado, cert.NumeroCertificado)">
+                                <i class="bi bi-file-earmark-pdf-fill me-2"></i> Descargar PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadCertificatesAsync();
+    }
+
+    private async Task Download(Guid id, string numero)
+    {
+        await ViewModel.DownloadCertificateAsync(id, numero);
+    }
+}
+
+<style>
+    .certificate-card {
+        border: 1px solid #E5D0B1;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: url('data:image/svg+xml;utf8,<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="%23f0f0f0" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>') #FEFAF3;
+    }
+    
+    .certificate-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(197, 160, 89, 0.2);
+    }
+
+    .certificate-icon-wrapper {
+        display: inline-block;
+        padding: 15px;
+        background: rgba(197, 160, 89, 0.1);
+        border-radius: 50%;
+    }
+
+    .certificate-icon {
+        font-size: 2.5rem;
+        color: #C5A059;
+    }
+
+    .certificate-divider {
+        border-top: 2px dashed #C5A059;
+        opacity: 0.5;
+        margin: 1.5rem 0;
+    }
+</style>

@@ -1,0 +1,124 @@
+@page "/verify/{NumeroCertificado}"
+@using CursosIglesia.Services.Interfaces
+@inject ICertificateService CertificateService
+
+<PageTitle>Verificación de Certificado - Cursos Católicos</PageTitle>
+
+<div class="verify-layout d-flex align-items-center justify-content-center min-vh-100 py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                
+                <div class="text-center mb-5">
+                    <i class="bi bi-cross brand-icon mb-3" style="font-size: 3rem; color: #C5A059;"></i>
+                    <h2 class="fw-bold text-white">Validación Oficial</h2>
+                    <p class="text-white-50">Sistema de verificación de autenticidad de Cursos Católicos</p>
+                </div>
+
+                <div class="card verify-card shadow-lg border-0">
+                    <div class="card-body p-5 text-center">
+                        @if (_isLoading)
+                        {
+                            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Verificando...</span>
+                            </div>
+                            <h5 class="mt-3 text-muted">Buscando certificado en el registro...</h5>
+                        }
+                        else if (_result != null && _result.Valido)
+                        {
+                            <div class="success-animation mb-4">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem;"></i>
+                            </div>
+                            <h3 class="fw-bold text-success mb-3">CERTIFICADO AUTÉNTICO</h3>
+                            <p class="lead text-muted mb-4">Este documento está registrado oficialmente en nuestra base de datos.</p>
+                            
+                            <div class="alert bg-light text-start border d-flex gap-3 align-items-center p-4 rounded-3 text-break">
+                                <div class="bg-white p-3 rounded shadow-sm border text-center">
+                                    <i class="bi bi-file-earmark-check text-primary fs-1"></i>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold text-dark mb-1">@_result.NombreEstudiante</h5>
+                                    <p class="mb-1 text-muted">Acreditó el curso:</p>
+                                    <h6 class="fw-bold text-primary mb-2">@_result.NombreCurso</h6>
+                                    <span class="badge bg-secondary">Emitido el: @_result.FechaOtorgamiento?.ToString("dd/MM/yyyy")</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 text-muted small">
+                                <strong>ID de Registro:</strong> @NumeroCertificado
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="error-animation mb-4">
+                                <i class="bi bi-x-circle-fill text-danger" style="font-size: 5rem;"></i>
+                            </div>
+                            <h3 class="fw-bold text-danger mb-3">CERTIFICADO INVÁLIDO</h3>
+                            <p class="text-muted mb-4">No pudimos encontrar ningún registro que coincida con este número de certificado.</p>
+                            
+                            <div class="alert alert-danger">
+                                <strong>Detalle:</strong> @(_result?.Message ?? "El código proporcionado no existe en nuestro sistema.")
+                            </div>
+
+                            <a href="/" class="btn-catholic mt-3">Volver al Inicio</a>
+                        }
+                    </div>
+                </div>
+
+                <div class="text-center mt-5 text-white-50 small">
+                    <p>© @DateTime.Now.Year Cursos Católicos. Validado criptográficamente en tiempo real.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string NumeroCertificado { get; set; } = string.Empty;
+
+    private bool _isLoading = true;
+    private Models.DTOs.VerifyCertificateResponse? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _result = await CertificateService.VerifyCertificateAsync(NumeroCertificado);
+        }
+        catch (Exception ex)
+        {
+            _result = new Models.DTOs.VerifyCertificateResponse 
+            { 
+                Valido = false, 
+                Message = "Error de conexión al servidor: " + ex.Message 
+            };
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
+
+<style>
+    .verify-layout {
+        background: linear-gradient(135deg, var(--color-primary) 0%, #1a2a40 100%);
+    }
+    
+    .verify-card {
+        border-radius: 20px;
+        background: #ffffff;
+    }
+    
+    .success-animation {
+        animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    
+    @@keyframes scaleIn {
+        0% { transform: scale(0); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>

@@ -7,9 +7,14 @@
 
 <!-- Page Header -->
 <section class="page-header">
-    <div class="container">
-        <h1><i class="bi bi-person-circle me-2"></i>Mis Cursos</h1>
-        <p>Gestiona tus cursos inscritos y continúa tu formación en la fe</p>
+    <div class="container d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h1><i class="bi bi-person-circle me-2"></i>Mis Cursos</h1>
+            <p>Gestiona tus cursos inscritos y continúa tu formación en la fe</p>
+        </div>
+        <a href="/certificados" class="btn-gold mt-3 mt-md-0">
+            <i class="bi bi-award-fill me-2"></i> Mis Certificados
+        </a>
     </div>
 </section>
 
@@ -90,8 +95,11 @@ else
                                     <div class="enrolled-actions">
                                         @if (item.Enrollment.IsCompleted)
                                         {
-                                            <a href="/aprender/@item.Course.Id" class="btn-catholic w-100 justify-content-center">
+                                            <a href="/aprender/@item.Course.Id" class="btn-catholic w-100 justify-content-center mb-2">
                                                 <i class="bi bi-arrow-repeat"></i> Repasar Curso
+                                            </a>
+                                            <a href="/certificados" class="btn-gold w-100 justify-content-center" style="font-size:0.9rem; padding:0.4rem;">
+                                                <i class="bi bi-award-fill"></i> Ver Certificado
                                             </a>
                                         }
                                         else

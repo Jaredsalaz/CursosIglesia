@@ -9,6 +9,7 @@
 @inject LearningViewModel ViewModel
 @inject NavigationManager Navigation
 @inject IMaestroService MaestroService
+@inject CursosIglesia.Services.Interfaces.ICertificateService CertificateService
 
 <PageTitle>@(ViewModel.Course?.Title ?? "Aprendiendo") - Cursos Católicos</PageTitle>
 
@@ -321,7 +322,13 @@ else if (ViewModel.Course != null)
                         }
 
                         <div class="lesson-action-buttons">
-                            @if (!ViewModel.IsCurrentLessonCompleted)
+                            @if (ViewModel.Progress >= 100)
+                            {
+                                <button class="btn-gold" @onclick="GoToCertificate">
+                                    <i class="bi bi-award-fill me-1"></i> ¡Felicidades! Descargar Certificado
+                                </button>
+                            }
+                            else if (!ViewModel.IsCurrentLessonCompleted)
                             {
                                 @if (ViewModel.CurrentTopic?.ContentType != ContentType.Test)
                                 {
@@ -417,6 +424,23 @@ else if (ViewModel.Course != null)
     private async Task CompleteAndNext()
     {
         await ViewModel.CompleteAndNextAsync();
+    }
+
+    private async Task GoToCertificate()
+    {
+        try
+        {
+            if (CourseId != Guid.Empty)
+            {
+                // Generate will return success if created, or error if already exists. Doesn't matter, we just try to generate it to be sure.
+                await CertificateService.GenerateCertificateAsync(CourseId);
+                Navigation.NavigateTo("/certificados");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generando certificado: {ex.Message}");
+        }
     }
 
     // Load files when a topic is selected
