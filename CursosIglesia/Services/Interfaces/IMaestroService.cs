@@ -25,4 +25,5 @@ public interface IMaestroService
     Task<List<ArchivoTema>> GetArchivosTemaAsync(Guid temaId);
     Task<ArchivoTema?> SubirArchivoTemaAsync(Guid temaId, Stream fileStream, string fileName, string contentType);
     Task<bool> EliminarArchivoTemaAsync(Guid archivoId);
+    Task<string?> SubirArchivoEntregaAsync(Guid temaId, Stream fileStream, string fileName, string contentType);
 }

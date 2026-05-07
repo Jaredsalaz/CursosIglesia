@@ -21,5 +21,6 @@ public enum ContentType
     VideoExterno = 2,
     ClaseVirtual = 3,
     Archivo = 4,
-    Test = 5
+    Test = 5,
+    Activity = 6
 }

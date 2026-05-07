@@ -1,0 +1,351 @@
+@page "/aprender/{CourseId:guid}/foro/{ForumId:guid}"
+@layout CursosIglesia.Components.Layout.MainLayout
+@inject IForumService ForumService
+@inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; padding:40px 20px; margin-bottom:30px;">
+    <div style="max-width:900px; margin:0 auto;">
+        <a href="javascript:history.back()" class="dash-btn" style="background:rgba(255,255,255,0.2); color:white; border:none; margin-bottom:15px;">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        <h1 style="margin:0 0 10px 0; font-size:2.5rem;">💬 @(forum?.Title ?? "Foro")</h1>
+        @if (!string.IsNullOrEmpty(forum?.Description))
+        {
+            <p style="margin:0; opacity:0.9; font-size:1.1rem;">@forum.Description</p>
+        }
+    </div>
+</div>
+
+<!-- Main Container -->
+<div style="max-width:900px; margin:0 auto; padding:0 20px 40px 20px;">
+    <!-- Alert -->
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="dash-alert @alertClass" style="margin-bottom:20px;">
+            <i class="bi @alertIcon"></i> @alertMessage
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div style="text-align:center; padding:60px 20px;">
+            <div class="dash-spinner"></div>
+            <p>Cargando foro...</p>
+        </div>
+    }
+    else
+    {
+        <!-- New Post Form -->
+        <div style="background:white; padding:20px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:30px;">
+            <div style="display:flex; gap:15px;">
+                <div style="width:40px; height:40px; background:#667eea; border-radius:50%; flex-shrink:0;"></div>
+                <div style="flex:1;">
+                    <textarea @bind="newPostContent"
+                              placeholder="¿Qué piensas? Comparte tu opinión..."
+                              class="dash-input"
+                              rows="3"
+                              style="width:100%; padding:12px; font-size:1rem; resize:vertical;"></textarea>
+                    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                        <button class="dash-btn dash-btn-outline" @onclick="ClearPostContent">
+                            Cancelar
+                        </button>
+                        <button class="dash-btn dash-btn-primary" @onclick="CreatePost" disabled="@(isCreatingPost || string.IsNullOrWhiteSpace(newPostContent))">
+                            <i class="bi @(isCreatingPost ? "bi-hourglass-split" : "bi-send")"></i>
+                            @(isCreatingPost ? "Enviando..." : "Publicar")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posts Timeline -->
+        @if (posts != null && posts.Any())
+        {
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                @foreach (var post in posts.OrderByDescending(p => p.IsPinned).ThenByDescending(p => p.CreatedAt))
+                {
+                    <div style="background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+                        <!-- Post Header -->
+                        <div style="padding:15px 20px; display:flex; justify-content:space-between; align-items:start; border-bottom:1px solid #f0f0f0;">
+                            <div style="display:flex; gap:12px; flex:1;">
+                                <div style="width:40px; height:40px; background:#667eea; border-radius:50%; flex-shrink:0;"></div>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:#333;">
+                                        @post.UserName
+                                        @if (post.IsPinned)
+                                        {
+                                            <span style="background:#ffc107; color:#333; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px;">
+                                                <i class="bi bi-pin"></i> Destacado
+                                            </span>
+                                        }
+                                    </div>
+                                    <small style="color:#999;">@GetTimeAgo(post.CreatedAt)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Post Content -->
+                        <div style="padding:15px 20px; border-bottom:1px solid #f0f0f0;">
+                            <p style="margin:0; color:#333; line-height:1.6; white-space:pre-wrap;">@post.Content</p>
+                        </div>
+
+                        <!-- Post Actions -->
+                        <div style="padding:10px 20px; display:flex; align-items:center; gap:20px; background:#f9f9f9;">
+                            <button class="forum-action-btn" @onclick="() => ToggleLike(post.Id, post.IsLikedByCurrentUser)"
+                                    style="color:@(post.IsLikedByCurrentUser ? "#e74c3c" : "#999");">
+                                <i class="bi @(post.IsLikedByCurrentUser ? "bi-heart-fill" : "bi-heart")"></i>
+                                @post.Likes
+                            </button>
+                            <button class="forum-action-btn" @onclick="() => ToggleReplyForm(post.Id)">
+                                <i class="bi bi-chat-left"></i> Responder
+                            </button>
+                        </div>
+
+                        <!-- Replies -->
+                        @if (post.Replies != null && post.Replies.Any())
+                        {
+                            <div style="background:#fafafa; padding:15px 20px; border-left:3px solid #667eea;">
+                                @foreach (var reply in post.Replies)
+                                {
+                                    <div style="display:flex; gap:12px; margin-bottom:15px; padding-bottom:15px; border-bottom:1px solid #e0e0e0;">
+                                        <div style="width:32px; height:32px; background:#764ba2; border-radius:50%; flex-shrink:0;"></div>
+                                        <div style="flex:1;">
+                                            <div style="font-weight:600; color:#333; font-size:0.95rem;">@reply.UserName</div>
+                                            <small style="color:#999;">@GetTimeAgo(reply.CreatedAt)</small>
+                                            <p style="margin:8px 0 0 0; color:#555; font-size:0.95rem; white-space:pre-wrap;">@reply.Content</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <!-- Reply Form -->
+                        @if (replyFormOpenFor == post.Id)
+                        {
+                            <div style="padding:15px 20px; background:#f9f9f9; border-top:1px solid #f0f0f0;">
+                                <div style="display:flex; gap:12px;">
+                                    <div style="width:32px; height:32px; background:#667eea; border-radius:50%; flex-shrink:0;"></div>
+                                    <div style="flex:1;">
+                                        <textarea @bind="replyContent"
+                                                  placeholder="Escribe tu respuesta..."
+                                                  class="dash-input"
+                                                  rows="2"
+                                                  style="width:100%; padding:10px; font-size:0.95rem;"></textarea>
+                                        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                                            <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => replyFormOpenFor = null">
+                                                Cancelar
+                                            </button>
+                                            <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => CreateReply(post.Id)" disabled="@string.IsNullOrWhiteSpace(replyContent)">
+                                                <i class="bi bi-send"></i> Responder
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div style="text-align:center; padding:60px 20px; background:white; border-radius:12px;">
+                <i class="bi bi-chat-dots" style="font-size:3rem; color:#ccc; display:block; margin-bottom:15px;"></i>
+                <p style="color:#999;">Aún no hay posts. ¡Sé el primero en compartir!</p>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .forum-action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .forum-action-btn:hover {
+        background: rgba(0,0,0,0.05);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Guid CourseId { get; set; }
+
+    [Parameter]
+    public Guid ForumId { get; set; }
+
+    private ForumDto? forum;
+    private List<ForumPostDto>? posts;
+    private string newPostContent = "";
+    private string replyContent = "";
+    private Guid? replyFormOpenFor;
+    private bool loading = true;
+    private bool isCreatingPost = false;
+    private string? alertMessage;
+    private string alertClass = "";
+    private string alertIcon = "";
+    private Guid currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUserId = AuthService.CurrentUser?.Id ?? Guid.Empty;
+        await LoadForum();
+    }
+
+    private async Task LoadForum()
+    {
+        try
+        {
+            loading = true;
+            var forums = await ForumService.GetCourseForumsAsync(CourseId);
+            forum = forums.FirstOrDefault(f => f.Id == ForumId);
+
+            if (forum != null)
+            {
+                posts = await ForumService.GetForumPostsAsync(ForumId, currentUserId);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al cargar: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task CreatePost()
+    {
+        if (string.IsNullOrWhiteSpace(newPostContent)) return;
+
+        try
+        {
+            isCreatingPost = true;
+            var request = new CreateForumPostRequest
+            {
+                ForumId = ForumId,
+                Content = newPostContent
+            };
+
+            var response = await ForumService.CreatePostAsync(currentUserId, request);
+            if (response.Success)
+            {
+                newPostContent = "";
+                ShowSuccess("Post publicado!");
+                await LoadForum();
+            }
+            else
+            {
+                ShowError(response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al crear post: {ex.Message}");
+        }
+        finally
+        {
+            isCreatingPost = false;
+        }
+    }
+
+    private async Task CreateReply(Guid parentPostId)
+    {
+        if (string.IsNullOrWhiteSpace(replyContent)) return;
+
+        try
+        {
+            var request = new CreateForumPostRequest
+            {
+                ForumId = ForumId,
+                Content = replyContent,
+                ParentPostId = parentPostId
+            };
+
+            var response = await ForumService.CreatePostAsync(currentUserId, request);
+            if (response.Success)
+            {
+                replyContent = "";
+                replyFormOpenFor = null;
+                await LoadForum();
+                ShowSuccess("Respuesta publicada!");
+            }
+            else
+            {
+                ShowError(response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleLike(Guid postId, bool isLiked)
+    {
+        try
+        {
+            if (isLiked)
+            {
+                await ForumService.UnlikePostAsync(currentUserId, postId);
+            }
+            else
+            {
+                await ForumService.LikePostAsync(currentUserId, postId);
+            }
+            await LoadForum();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+    }
+
+    private void ToggleReplyForm(Guid postId)
+    {
+        if (replyFormOpenFor == postId)
+            replyFormOpenFor = null;
+        else
+            replyFormOpenFor = postId;
+    }
+
+    private void ClearPostContent() => newPostContent = "";
+
+    private string GetTimeAgo(DateTime dateTime)
+    {
+        var timeSpan = DateTime.Now - dateTime;
+        if (timeSpan.TotalSeconds < 60) return "hace unos segundos";
+        if (timeSpan.TotalMinutes < 60) return $"hace {(int)timeSpan.TotalMinutes}m";
+        if (timeSpan.TotalHours < 24) return $"hace {(int)timeSpan.TotalHours}h";
+        if (timeSpan.TotalDays < 7) return $"hace {(int)timeSpan.TotalDays}d";
+        return dateTime.ToString("g");
+    }
+
+    private void ShowError(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-danger";
+        alertIcon = "bi-exclamation-triangle";
+    }
+
+    private void ShowSuccess(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-success";
+        alertIcon = "bi-check-circle";
+    }
+}

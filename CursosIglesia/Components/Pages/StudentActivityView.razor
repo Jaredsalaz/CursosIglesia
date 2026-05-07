@@ -1,0 +1,643 @@
+@page "/aprender/{CourseId:guid}/{TemaId:guid}/actividad/{ActivityId:guid}"
+@layout CursosIglesia.Components.Layout.MainLayout
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
+@inject IMaestroService MaestroService
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+@using System.Text.Json
+
+@if (!IsEmbedded)
+{
+    <!-- Header -->
+    <div style="max-width:900px; margin:0 auto; padding:20px;">
+        <a href="javascript:history.back()" class="dash-btn dash-btn-outline">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+}
+
+<!-- Activity Container -->
+<div style="max-width:900px; margin:0 auto; padding:@(IsEmbedded ? "0" : "20px 40px");">
+    @if (loading)
+    {
+        <div style="text-align:center; padding:60px 20px;">
+            <div class="dash-spinner"></div>
+            <p>Cargando actividad...</p>
+        </div>
+    }
+    else if (activity != null)
+    {
+        <div class="activity-header" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding:30px; border-radius:12px; color:white; margin-bottom:25px; position:relative; overflow:hidden;">
+            <div style="position:relative; z-index:2;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <span class="dash-badge" style="background:rgba(255,255,255,0.2); color:white; margin-bottom:10px;">🎯 Actividad Práctica</span>
+                        <h2 style="margin:0; font-size:1.8rem; font-weight:800;">@activity.Titulo</h2>
+                    </div>
+                    @if (isGraded)
+                    {
+                        <div style="background:rgba(255,255,255,0.2); padding:15px; border-radius:12px; text-align:center; border:1px solid rgba(255,255,255,0.3);">
+                            <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px;">Calificación</div>
+                            <div style="font-size:2rem; font-weight:900;">@totalPuntosGanados<span style="font-size:1rem; opacity:0.7;">/@activity.PuntosMaximos</span></div>
+                        </div>
+                    }
+                </div>
+                <p style="margin:15px 0 0 0; opacity:0.9; max-width:600px;">@activity.Descripcion</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(alertMessage))
+        {
+            <div class="dash-alert @alertClass" style="margin-bottom:20px;">
+                <i class="bi @alertIcon"></i> @alertMessage
+            </div>
+        }
+
+        @if (isGraded && !string.IsNullOrEmpty(generalFeedback))
+        {
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:12px; padding:20px; margin-bottom:25px; display:flex; gap:15px;">
+                <div style="font-size:2rem;">👨‍🏫</div>
+                <div>
+                    <h4 style="margin:0 0 5px 0; color:#166534;">Mensaje del Maestro</h4>
+                    <p style="margin:0; color:#15803d; font-style:italic;">"@generalFeedback"</p>
+                </div>
+            </div>
+        }
+        else if (isSubmitted && !isGraded)
+        {
+            <div style="background:#fefce8; border:1px solid #fef08a; border-radius:12px; padding:15px; margin-bottom:25px; display:flex; align-items:center; gap:10px; color:#854d0e;">
+                <i class="bi bi-hourglass-split" style="font-size:1.2rem;"></i>
+                <span>Ya enviaste esta actividad. El maestro aún no la ha calificado.</span>
+            </div>
+        }
+            @if (activity.FechaEntrega.HasValue)
+            {
+                <small style="display:block; margin-top:10px;"><i class="bi bi-calendar-event"></i> Entrega: @activity.FechaEntrega.Value.ToString("g")</small>
+            }
+
+        <!-- Instructions -->
+        <div style="background:#f8f9fa; padding:20px; border-left:4px solid #667eea; border-radius:8px; margin-bottom:30px;">
+            <h3 style="margin:0 0 10px 0; color:#333;">📝 Instrucciones</h3>
+            <p style="margin:0; white-space:pre-wrap; line-height:1.6;">@activity.Instrucciones</p>
+        </div>
+
+        <!-- Alert -->
+        @if (!string.IsNullOrEmpty(alertMessage))
+        {
+            <div class="dash-alert @alertClass" style="margin-bottom:20px;">
+                <i class="bi @alertIcon"></i> @alertMessage
+            </div>
+        }
+
+        <!-- Questions Form -->
+        <EditForm Model="@responses" OnValidSubmit="@SubmitResponses">
+            <DataAnnotationsValidator />
+            <div style="display:flex; flex-direction:column; gap:20px;">
+                @foreach (var (question, idx) in activity.Questions.OrderBy(q => q.Orden).Select((q, i) => (q, i)))
+                {
+                    <div style="background:white; padding:25px; border-radius:12px; border:1px solid #e0e0e0; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <!-- Question Header -->
+                        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:15px;">
+                            <div style="flex:1;">
+                                <h4 style="margin:0 0 5px 0; font-size:1.1rem; color:#333;">
+                                    @((idx + 1) + ". " + question.TextoPregunta)
+                                    @if (question.EsObligatoria)
+                                    {
+                                        <span style="color:#e74c3c;">*</span>
+                                    }
+                                </h4>
+                                <small style="color:#999; display:block;">@GetQuestionTypeName((ActivityQuestionType)question.TipoPregunta) | @question.Puntos puntos</small>
+                            </div>
+                        </div>
+
+                        <!-- Question Input Based on Type -->
+                        @if (question.TipoPregunta == 0) // ShortText
+                        {
+                            <input type="text"
+                                   @bind="responses[question.IdActivityQuestion]"
+                                   placeholder="Escribe tu respuesta aquí..."
+                                   class="dash-input"
+                                   required="@question.EsObligatoria"
+                                   style="width:100%; padding:12px; font-size:1rem;" />
+                        }
+                        else if (question.TipoPregunta == 1) // LongText
+                        {
+                            <textarea
+                                @bind="responses[question.IdActivityQuestion]"
+                                placeholder="Escribe tu respuesta aquí..."
+                                class="dash-input"
+                                rows="5"
+                                required="@question.EsObligatoria"
+                                style="width:100%; padding:12px; font-size:1rem;"></textarea>
+                        }
+                        else if (question.TipoPregunta == 2) // MultipleChoice
+                        {
+                            @if (question.Opciones != null)
+                            {
+                                <div style="display:flex; flex-direction:column; gap:10px;">
+                                    @foreach (var (option, optIdx) in question.Opciones.Select((o, i) => (o, i)))
+                                    {
+                                        @if (!string.IsNullOrEmpty(option))
+                                        {
+                                            <label style="display:flex; align-items:center; gap:10px; padding:10px; background:#f9f9f9; border-radius:8px; cursor:pointer; transition:background 0.2s;">
+                                                <input type="radio"
+                                                       name="@($"question-{question.IdActivityQuestion}")"
+                                                       value="@option"
+                                                       @onchange="@((ChangeEventArgs e) => responses[question.IdActivityQuestion] = e.Value?.ToString() ?? "")"
+                                                       required="@question.EsObligatoria" />
+                                                <span>@((char)('A' + optIdx)). @option</span>
+                                            </label>
+                                        }
+                                    }
+                                </div>
+                            }
+                        }
+                        else if (question.TipoPregunta == 4) // Rating
+                        {
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                @for (int rating = 1; rating <= 5; rating++)
+                                {
+                                    var ratingValue = rating.ToString();
+                                    <button type="button"
+                                            @onclick="@((MouseEventArgs e) => responses[question.IdActivityQuestion] = ratingValue)"
+                                            style="font-size:2rem; cursor:pointer; border:none; background:none; color:@(responses.ContainsKey(question.IdActivityQuestion) && responses[question.IdActivityQuestion] == ratingValue ? "#ffc107" : "#ddd"); transition:color 0.2s;">
+                                        ⭐
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else if (question.TipoPregunta == 6) // FileUpload
+                        {
+                            <div style="padding:15px; border:2px dashed #ddd; border-radius:8px; text-align:center;">
+                                @if (string.IsNullOrEmpty(responses.ContainsKey(question.IdActivityQuestion) ? responses[question.IdActivityQuestion] : ""))
+                                {
+                                    <div style="margin-bottom:10px;">
+                                        <i class="bi bi-cloud-upload" style="font-size:2rem; color:#ccc;"></i>
+                                        <p style="margin:5px 0; color:#666;">Selecciona un archivo para subir (PDF, Word, Imagen)</p>
+                                    </div>
+                                    <InputFile OnChange="@((e) => OnFileSelected(e, question.IdActivityQuestion))" 
+                                               class="dash-input" style="width:auto;" />
+                                }
+                                else
+                                {
+                                    <div style="display:flex; align-items:center; justify-content:center; gap:15px; background:#f0f9ff; padding:10px; border-radius:6px; border:1px solid #bae6fd;">
+                                        <i class="bi bi-file-earmark-check" style="font-size:1.5rem; color:#0284c7;"></i>
+                                        <div style="text-align:left;">
+                                            <div style="font-weight:600; color:#0369a1;">Archivo listo</div>
+                                            <div style="font-size:0.8rem; color:#075985;">Se enviará con tus respuestas</div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="@(() => responses[question.IdActivityQuestion] = "")">
+                                            <i class="bi bi-x"></i> Quitar
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <!-- Feedback Display (if available) -->
+                        @if (!string.IsNullOrEmpty(question.TextoFeedback))
+                        {
+                            <div style="margin-top:15px; padding:10px; background:#e8f4f8; border-left:3px solid #3498db; border-radius:4px;">
+                                <small style="color:#2980b9;"><i class="bi bi-info-circle"></i> @question.TextoFeedback</small>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Auto-save status -->
+                <div style="text-align:center; color:#999; font-size:0.9rem;">
+                    @if (lastSaveTime != null)
+                    {
+                        <small><i class="bi bi-check-circle"></i> Guardado automáticamente hace @GetTimeSince(lastSaveTime)</small>
+                    }
+                </div>
+
+                <!-- FILE UPLOAD SECTION for Tarea (Tipo == 1) -->
+                @if (activity.Tipo == 1)
+                {
+                    <div style="background:white; padding:25px; border-radius:12px; border:2px dashed #667eea; margin-top:20px;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+                            <i class="bi bi-cloud-upload" style="font-size:1.5rem; color:#667eea;"></i>
+                            <div>
+                                <h4 style="margin:0; color:#333; font-size:1.1rem;">📎 Subir archivo de entrega</h4>
+                                <small style="color:#999;">Formatos permitidos: PDF, Word (.doc, .docx), Imágenes. Máx 10MB</small>
+                            </div>
+                        </div>
+
+                        @if (string.IsNullOrEmpty(uploadedFileUrl))
+                        {
+                            <div style="text-align:center; padding:30px; background:#f8f9ff; border-radius:8px; cursor:pointer; display:@(isUploadingFile ? "none" : "block")">
+                                <i class="bi bi-file-earmark-arrow-up" style="font-size:2.5rem; color:#667eea; display:block; margin-bottom:10px;"></i>
+                                <p style="margin:0 0 10px 0; color:#555;">Selecciona tu archivo aquí</p>
+                                <InputFile OnChange="@OnTaskFileSelected" 
+                                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                           style="display:block; margin:0 auto; max-width:300px;" />
+                            </div>
+
+                            @if (isUploadingFile)
+                            {
+                                <div style="text-align:center; padding:20px;">
+                                    <div class="dash-spinner"></div>
+                                    <p style="margin-top:10px; color:#667eea;">Subiendo archivo...</p>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div style="display:flex; align-items:center; justify-content:space-between; background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #86efac;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <i class="bi bi-file-earmark-check" style="font-size:1.8rem; color:#22c55e;"></i>
+                                    <div>
+                                        <div style="font-weight:700; color:#166534;">✅ Archivo subido correctamente</div>
+                                        <div style="font-size:0.82rem; color:#15803d;">@uploadedFileName</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <a href="@uploadedFileUrl" target="_blank" style="color:#667eea; text-decoration:none; font-size:0.85rem;">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                    <button type="button" @onclick="RemoveUploadedFile" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.85rem;">
+                                        <i class="bi bi-trash"></i> Quitar
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(uploadError))
+                        {
+                            <div style="margin-top:10px; padding:10px; background:#fef2f2; border-left:3px solid #ef4444; border-radius:4px; color:#dc2626; font-size:0.85rem;">
+                                <i class="bi bi-exclamation-triangle"></i> @uploadError
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Submit Buttons -->
+                <div style="display:flex; gap:10px; margin-top:30px;">
+                    <button type="submit" class="dash-btn dash-btn-success" style="flex:1; padding:15px;" disabled="@isSubmitting">
+                        <i class="bi @(isSubmitting ? "bi-hourglass-split" : "bi-check-circle")"></i>
+                        @(isSubmitting ? "Enviando..." : "Enviar Respuestas")
+                    </button>
+                    <button type="button" @onclick="ClearResponses" class="dash-btn dash-btn-outline" style="flex:1; padding:15px;">
+                        <i class="bi bi-arrow-clockwise"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    }
+    else
+    {
+        <div style="text-align:center; padding:60px 20px;">
+            <i class="bi bi-inbox" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+            <p>No se encontró la actividad.</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid CourseId { get; set; }
+
+    [Parameter]
+    public Guid TemaId { get; set; }
+
+    [Parameter]
+    public Guid ActivityId { get; set; }
+
+    [Parameter]
+    public bool IsEmbedded { get; set; } = false;
+
+    [Parameter]
+    public EventCallback OnSubmitted { get; set; }
+
+    private Activity? activity;
+    private Dictionary<Guid, string> responses = new();
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string? alertMessage;
+    private string alertClass = "";
+    private string alertIcon = "";
+    private DateTime? lastSaveTime;
+
+    // Estado de entrega y calificación
+    private bool isSubmitted = false;
+    private bool isGraded = false;
+    private int totalPuntosGanados = 0;
+    private string? generalFeedback;
+
+    // File upload state for Tarea type
+    private string? uploadedFileUrl;
+    private string? uploadedFileName;
+    private bool isUploadingFile = false;
+    private string? uploadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await AuthService.InitializeAsync();
+            activity = await ActivityService.GetActivityAsync(ActivityId);
+
+            // Cargar respuestas previas del alumno si existen
+            if (AuthService.CurrentUser != null)
+            {
+                var existingResponses = await ActivityService.GetStudentResponseAsync(AuthService.CurrentUser.Id, ActivityId);
+                if (existingResponses != null && existingResponses.Any())
+                {
+                    isSubmitted = true;
+                    totalPuntosGanados = 0;
+                    
+                    foreach (var resp in existingResponses)
+                    {
+                        responses[resp.IdPregunta] = resp.Respuesta;
+                        if (resp.PuntosGanados.HasValue)
+                        {
+                            isGraded = true;
+                            totalPuntosGanados += resp.PuntosGanados.Value;
+                        }
+                        
+                        if (!string.IsNullOrEmpty(resp.Feedback))
+                        {
+                            generalFeedback = resp.Feedback; // Tomamos el feedback (asumiendo que es general o el último)
+                        }
+
+                        // Detectar si hay un archivo subido en las respuestas existentes
+                        if (resp.IdPregunta == Guid.Parse("00000000-0000-0000-0000-000000000001"))
+                        {
+                            uploadedFileUrl = resp.Respuesta;
+                            uploadedFileName = "Archivo entregado anteriormente";
+                        }
+                    }
+                }
+            }
+
+            // Initialize responses dictionary for new questions
+            if (activity?.Questions != null)
+            {
+                foreach (var question in activity.Questions)
+                {
+                    if (!responses.ContainsKey(question.IdActivityQuestion))
+                    {
+                        responses[question.IdActivityQuestion] = "";
+                    }
+                }
+            }
+
+            // Auto-save every 30 seconds
+            _ = Task.Run(AutoSaveResponses);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al cargar: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SubmitResponses()
+    {
+        if (!ValidateResponses()) return;
+
+        if (AuthService.CurrentUser == null)
+        {
+            await AuthService.InitializeAsync();
+            if (AuthService.CurrentUser == null)
+            {
+                ShowError("Sesión expirada. Por favor, inicie sesión de nuevo.");
+                return;
+            }
+        }
+
+        try
+        {
+            isSubmitting = true;
+
+            // Si la actividad es tipo Tarea (1), incluimos el archivo en las respuestas
+            if (activity.Tipo == 1 && !string.IsNullOrEmpty(uploadedFileUrl))
+            {
+                // Usamos un ID virtual determinista para representar el archivo de entrega
+                var fileKey = Guid.Parse("00000000-0000-0000-0000-000000000001");
+                responses[fileKey] = uploadedFileUrl;
+            }
+
+            var request = new SubmitActivityResponseRequest
+            {
+                IdActividad = ActivityId,
+                Respuestas = responses
+            };
+
+            var response = await ActivityService.SubmitResponseAsync(AuthService.CurrentUser.Id, request);
+
+            if (response.Success)
+            {
+                alertMessage = "✅ Respuestas enviadas exitosamente!";
+                alertClass = "dash-alert-success";
+                alertIcon = "bi-check-circle";
+                isSubmitted = true; // Actualizar estado local
+                await JSRuntime.InvokeVoidAsync("window.scrollTo", 0, 0);
+                await OnSubmitted.InvokeAsync();
+                StateHasChanged();
+                await Task.Delay(3000);
+            }
+            else
+            {
+                ShowError(response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al enviar: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task OnTaskFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        uploadError = null;
+
+        // Validate extension
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp" };
+        if (!allowedExtensions.Contains(extension))
+        {
+            uploadError = "Tipo de archivo no permitido. Use: PDF, DOC, DOCX, JPG, PNG";
+            return;
+        }
+
+        // Validate size (10MB)
+        if (file.Size > 10 * 1024 * 1024)
+        {
+            uploadError = "El archivo supera el límite de 10MB";
+            return;
+        }
+
+        isUploadingFile = true;
+        StateHasChanged();
+
+        try
+        {
+            var contentType = extension switch
+            {
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream"
+            };
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            var resultUrl = await MaestroService.SubirArchivoEntregaAsync(TemaId, stream, file.Name, contentType);
+
+            if (!string.IsNullOrEmpty(resultUrl))
+            {
+                uploadedFileUrl = resultUrl;
+                uploadedFileName = file.Name;
+            }
+            else
+            {
+                uploadError = "No se pudo subir el archivo. Intente de nuevo.";
+            }
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Error al subir: {ex.Message}";
+        }
+        finally
+        {
+            isUploadingFile = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveUploadedFile()
+    {
+        uploadedFileUrl = null;
+        uploadedFileName = null;
+        uploadError = null;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e, Guid questionId)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        // Validar tamaño (máx 5MB)
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            ShowError("El archivo supera el límite de 5MB");
+            return;
+        }
+
+        try
+        {
+            // Determinar tipo de contenido
+            var extension = Path.GetExtension(file.Name).ToLower();
+            var contentType = extension switch
+            {
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                _ => "application/octet-stream"
+            };
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            
+            // Usamos el servicio de maestro para subir el archivo (reutilizando lógica de subida)
+            // En una app real, usaríamos un endpoint específico para entregas de alumnos
+            var resultUrl = await MaestroService.SubirArchivoEntregaAsync(TemaId, stream, file.Name, contentType);
+            
+            if (!string.IsNullOrEmpty(resultUrl))
+            {
+                responses[questionId] = resultUrl;
+                StateHasChanged();
+            }
+            else
+            {
+                ShowError("No se pudo subir el archivo. Intente de nuevo.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al subir archivo: {ex.Message}");
+        }
+    }
+
+    private bool ValidateResponses()
+    {
+        if (activity?.Questions == null) return false;
+
+        foreach (var question in activity.Questions.Where(q => q.EsObligatoria))
+        {
+            if (!responses.ContainsKey(question.IdActivityQuestion) || string.IsNullOrWhiteSpace(responses[question.IdActivityQuestion]))
+            {
+                ShowError("Debe responder todas las preguntas obligatorias");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ClearResponses()
+    {
+        if (activity?.Questions != null)
+        {
+            foreach (var question in activity.Questions)
+            {
+                responses[question.IdActivityQuestion] = "";
+            }
+        }
+    }
+
+    private async Task AutoSaveResponses()
+    {
+        while (true)
+        {
+            await Task.Delay(30000); // 30 seconds
+            // In a real app, you might save to localStorage or backend
+            lastSaveTime = DateTime.Now;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetQuestionTypeName(ActivityQuestionType type) => type switch
+    {
+        ActivityQuestionType.ShortText => "Respuesta Corta",
+        ActivityQuestionType.LongText => "Respuesta Larga",
+        ActivityQuestionType.MultipleChoice => "Opción Múltiple",
+        ActivityQuestionType.Ranking => "Ranking",
+        ActivityQuestionType.Rating => "Rating",
+        ActivityQuestionType.Matching => "Emparejar",
+        _ => "Desconocido"
+    };
+
+    private string GetTimeSince(DateTime? time)
+    {
+        if (!time.HasValue) return "";
+        var diff = DateTime.Now - time.Value;
+        if (diff.TotalSeconds < 60) return "hace unos segundos";
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes}m";
+        if (diff.TotalHours < 24) return $"hace {(int)diff.TotalHours}h";
+        return time.Value.ToString("g");
+    }
+
+    private void ShowError(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-danger";
+        alertIcon = "bi-exclamation-triangle";
+    }
+}

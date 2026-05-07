@@ -59,6 +59,9 @@
                 <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/cursos")" href="/dashboard/maestro/cursos">
                     <i class="bi bi-journal-bookmark"></i><span>Mis Cursos</span>
                 </a>
+                <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/calificaciones")" href="/dashboard/maestro/calificaciones">
+                    <i class="bi bi-award"></i><span>Calificaciones</span>
+                </a>
                 <a class="sidebar-nav-item @ActiveClass("/dashboard/maestro/inscripciones")" href="/dashboard/maestro/inscripciones">
                     <i class="bi bi-person-lines-fill"></i><span>Inscripciones</span>
                 </a>
@@ -160,6 +163,7 @@
             "dashboard/admin/documentos" => "Documentos",
             "dashboard/maestro" => "Mi Panel",
             "dashboard/maestro/cursos" => "Mis Cursos",
+            "dashboard/maestro/calificaciones" => "Calificaciones",
             "dashboard/maestro/inscripciones" => "Mis Inscripciones",
             "dashboard/maestro/documentos" => "Mis Documentos",
             _ => uri.Contains("lecciones") ? "Lecciones del Curso" : "Dashboard"

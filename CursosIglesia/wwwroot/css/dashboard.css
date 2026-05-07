@@ -1048,3 +1048,27 @@
     margin-bottom: 0;
 }
 
+/* Link styles */
+.dash-link {
+    color: var(--dash-accent);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.dash-link:hover {
+    color: var(--dash-accent-light);
+    text-decoration: underline;
+}
+
+/* Button Gold variant */
+.dash-btn-gold {
+    background: var(--dash-accent);
+    color: #000;
+}
+
+.dash-btn-gold:hover {
+    background: var(--dash-accent-light);
+    box-shadow: 0 0 15px var(--dash-accent-glow);
+}
+

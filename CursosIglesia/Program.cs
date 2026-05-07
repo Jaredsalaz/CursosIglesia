@@ -73,7 +73,13 @@ builder.Services.AddScoped<ICertificateService, CursosIglesia.Services.Implement
 builder.Services.AddHttpClient<ICertificateService, CursosIglesia.Services.Implementations.ApiCertificateService>(client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<JwtAuthorizationHandler>();
 
-// Register ViewModels
+builder.Services.AddScoped<IActivityService, ApiActivityService>();
+builder.Services.AddHttpClient<IActivityService, ApiActivityService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
+
+builder.Services.AddScoped<IForumService, ApiForumService>();
+builder.Services.AddHttpClient<IForumService, ApiForumService>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<JwtAuthorizationHandler>();
 builder.Services.AddScoped<HomeViewModel>();
 builder.Services.AddScoped<CoursesViewModel>();
 builder.Services.AddScoped<CourseDetailViewModel>();

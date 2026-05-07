@@ -2,7 +2,9 @@
 @layout CursosIglesia.Components.Layout.DashboardLayout
 @inject IMaestroService MaestroService
 @inject IAuthService AuthService
+@inject IActivityService ActivityService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 @using CursosIglesia.Models
 @using CursosIglesia.Models.DTOs
 @using Microsoft.AspNetCore.Components.Forms
@@ -112,6 +114,16 @@
                                                     <a href="/dashboard/maestro/temas/@t.Id/quiz" class="dash-btn dash-btn-outline dash-btn-sm" title="Quiz Builder">
                                                         <i class="bi bi-ui-checks-grid"></i> Quiz
                                                     </a>
+                                                }
+                                                @if (t.ContentType == ContentType.Activity)
+                                                {
+                                                    <a href="/dashboard/maestro/actividades/@t.Id" class="dash-btn dash-btn-outline dash-btn-sm" title="Diseñar Actividad">
+                                                        <i class="bi bi-pencil-square"></i> Actividad
+                                                    </a>
+                                                    <button class="dash-btn dash-btn-sm" style="background:var(--dash-accent); color:#000; font-weight:700;" 
+                                                            @onclick="() => GoToCalificar(t.Id)" title="Calificar entregas">
+                                                        <i class="bi bi-award"></i> Calificar
+                                                    </button>
                                                 }
                                                 <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => OpenTopicEditModal(t, l.Id)" title="Editar Tema">
                                                     <i class="bi bi-pencil"></i>
@@ -265,9 +277,25 @@
                             <div>
                                 <h5 style="margin:0 0 5px; color:var(--dash-primary); font-weight:700;">Diseñador de Cuestionarios</h5>
                                 <p style="margin:0; font-size:0.9rem; color:var(--dash-text-muted);">
-                                    ¡Excelente elección! Una vez que <strong>guardes este tema</strong>, aparecerá en la lista anterior. 
-                                    Haz clic en el botón <strong style="color:var(--dash-accent);"><i class="bi bi-ui-checks-grid"></i> Quiz</strong> 
+                                    ¡Excelente elección! Una vez que <strong>guardes este tema</strong>, aparecerá en la lista anterior.
+                                    Haz clic en el botón <strong style="color:var(--dash-accent);"><i class="bi bi-ui-checks-grid"></i> Quiz</strong>
                                     al lado de este tema para usar el Constructor de Cuestionarios o <strong>generarlo con Inteligencia Artificial ✨</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (currentTopic.ContentType == ContentType.Activity)
+                {
+                    <div class="dash-form-group">
+                        <div class="dash-alert dash-alert-info" style="border-radius:12px; margin-top:10px; display:flex; align-items:flex-start; gap:15px; border-left:4px solid var(--dash-accent); background:rgba(var(--color-primary-rgb), 0.05);">
+                            <i class="bi bi-play-circle" style="font-size:1.8rem; color:var(--dash-accent); line-height:1;"></i>
+                            <div>
+                                <h5 style="margin:0 0 5px; color:var(--dash-primary); font-weight:700;">Constructor de Actividades</h5>
+                                <p style="margin:0; font-size:0.9rem; color:var(--dash-text-muted);">
+                                    ¡Perfecto! Una vez que <strong>guardes este tema</strong>, aparecerá en la lista anterior.
+                                    Haz clic en el botón <strong style="color:var(--dash-accent);"><i class="bi bi-play-circle"></i> Actividad</strong>
+                                    al lado de este tema para crear preguntas y gestionar las actividades.
                                 </p>
                             </div>
                         </div>
@@ -370,11 +398,156 @@
                     </div>
                 }
             </div>
+
+            @* ============================================================ *@
+            @* SECCIÓN: Actividades                                         *@
+            @* Solo visible cuando el tema ya fue guardado (tiene ID)        *@
+            @* ============================================================ *@
+            @if (editingTopicId.HasValue)
+            {
+                <hr style="border-color:var(--dash-border); margin:20px 0;"/>
+                <div class="dash-form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                        <label class="dash-form-label" style="margin:0;">
+                            <i class="bi bi-play-circle" style="color:var(--dash-accent);"></i>
+                            Actividades / Prácticas
+                            <span style="font-weight:400; font-size:0.8rem; color:var(--dash-text-muted); margin-left:6px;">(@actividadesTema.Count)</span>
+                        </label>
+                        <button type="button" class="dash-btn dash-btn-success dash-btn-sm" @onclick="OpenActivityCreateModal" style="display:flex; align-items:center; gap:6px;">
+                            <i class="bi bi-plus-circle"></i> Nueva Actividad
+                        </button>
+                    </div>
+
+                    @* Mensaje de error *@
+                    @if (!string.IsNullOrEmpty(activityError))
+                    {
+                        <div style="margin-bottom:10px; padding:8px 12px; background:rgba(220,53,69,0.08); border-left:3px solid #dc3545; border-radius:6px; font-size:0.85rem; color:#dc3545;">
+                            <i class="bi bi-exclamation-circle"></i> @activityError
+                        </div>
+                    }
+
+                    @* Lista de actividades *@
+                    @if (actividadesTema.Any())
+                    {
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            @foreach (var activity in actividadesTema)
+                            {
+                                <div style="background:var(--dash-panel-bg); border:1px solid var(--dash-border); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:600; font-size:0.95rem; color:var(--dash-text); margin-bottom:4px;">@activity.Titulo</div>
+                                        <div style="font-size:0.8rem; color:var(--dash-text-muted);">
+                                            <span class="dash-badge dash-badge-info" style="font-size:0.7rem; padding:2px 6px;">@GetActivityTypeLabel(activity.Tipo)</span>
+                                            <span style="margin-left:8px;"><i class="bi bi-question-circle"></i> @(activity.Questions?.Count ?? 0) preguntas</span>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:6px; flex-shrink:0;">
+                                        <a href="/dashboard/maestro/actividades/@activity.IdActividad/respuestas" class="dash-btn dash-btn-gold dash-btn-sm" title="Calificar Entregas" style="padding:4px 8px;">
+                                            <i class="bi bi-award"></i> Calificar
+                                        </a>
+                                        <a href="/dashboard/maestro/actividades/@activity.IdActividad" class="dash-btn dash-btn-outline dash-btn-sm" title="Editar Actividad" style="padding:4px 8px;">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </a>
+                                        <button type="button" class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => DeleteActivity(activity.IdActividad)" title="Eliminar Actividad" style="padding:4px 8px;">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="padding:30px; text-align:center; color:var(--dash-text-muted); border:2px dashed var(--dash-border); border-radius:8px;">
+                            <i class="bi bi-inbox" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                            <p style="margin:0;">No hay actividades aún. Haz clic en "+ Nueva Actividad" para crear una.</p>
+                        </div>
+                    }
+                </div>
+            }
             <div class="dash-modal-footer">
                 <button class="dash-btn dash-btn-outline" @onclick="() => showTopicModal = false">Cancelar</button>
                 <button class="dash-btn dash-btn-primary" @onclick="SaveTopic" disabled="@saving">
                     @if (saving) { <span>Guardando...</span> }
                     else { <span><i class="bi bi-check-lg"></i> @(isEditing ? "Actualizar Tema" : "Crear Tema")</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ============================================================ *@
+@* MODAL: Crear Nueva Actividad                               *@
+@* ============================================================ *@
+@if (showActivityCreateModal && editingTopicId.HasValue)
+{
+    <div class="dash-modal-backdrop" @onclick="() => showActivityCreateModal = false">
+        <div class="dash-modal" @onclick:stopPropagation="true" style="max-width:600px;">
+            <div class="dash-modal-header">
+                <span class="dash-modal-title">
+                    <i class="bi bi-plus-circle" style="color:var(--dash-accent)"></i> Nueva Actividad
+                </span>
+                <button class="dash-modal-close" @onclick="() => showActivityCreateModal = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="dash-modal-body">
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Título *</label>
+                    <input type="text" @bind="activityForm.Titulo" placeholder="Título de la actividad" class="dash-form-input" style="width:100%;" />
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Tipo de Actividad *</label>
+                    <select @bind="activityForm.Tipo" class="dash-form-select" style="width:100%;">
+                        <option value="">-- Selecciona un tipo --</option>
+                        <option value="0">📝 Discusión - Preguntas dinámicas</option>
+                        <option value="1">📋 Tarea - Trabajo a entregar</option>
+                        <option value="2">📊 Encuesta - Recolectar opiniones</option>
+                        <option value="3">💬 Foro - Conversación abierta</option>
+                    </select>
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Descripción</label>
+                    <textarea @bind="activityForm.Descripcion" placeholder="Descripción de la actividad" class="dash-form-input" rows="3" style="width:100%;"></textarea>
+                </div>
+
+                <div class="dash-form-group">
+                    <label class="dash-form-label">Instrucciones *</label>
+                    <textarea @bind="activityForm.Instrucciones" placeholder="Instrucciones detalladas para los estudiantes" class="dash-form-input" rows="4" style="width:100%;"></textarea>
+                </div>
+
+                <div class="dash-form-row">
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Puntos Máximos</label>
+                        <input type="number" @bind="activityForm.PuntosMaximos" min="0" class="dash-form-input" style="width:100%;" />
+                    </div>
+                    <div class="dash-form-group">
+                        <label class="dash-form-label">Fecha de Entrega (opcional)</label>
+                        <input type="datetime-local" @bind="activityForm.FechaEntrega" class="dash-form-input" style="width:100%;" />
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:15px;">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" @bind="activityForm.MostrarRespuestas" />
+                        <span>Mostrar respuestas a todos</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" @bind="activityForm.PermitirEnvioTarde" />
+                        <span>Permitir envíos atrasados</span>
+                    </label>
+                </div>
+
+                @if (!string.IsNullOrEmpty(activityError))
+                {
+                    <div style="margin-top:10px; padding:8px 12px; background:rgba(220,53,69,0.08); border-left:3px solid #dc3545; border-radius:6px; font-size:0.85rem; color:#dc3545;">
+                        <i class="bi bi-exclamation-circle"></i> @activityError
+                    </div>
+                }
+            </div>
+            <div class="dash-modal-footer">
+                <button class="dash-btn dash-btn-outline" @onclick="() => showActivityCreateModal = false" disabled="@savingActivity">Cancelar</button>
+                <button class="dash-btn dash-btn-primary" @onclick="SaveNewActivityAsync" disabled="@(savingActivity || string.IsNullOrWhiteSpace(activityForm.Titulo) || string.IsNullOrWhiteSpace(activityForm.Instrucciones))">
+                    @if (savingActivity) { <span>Guardando...</span> } else { <span><i class="bi bi-check-lg"></i> Crear Actividad</span> }
                 </button>
             </div>
         </div>
@@ -402,6 +575,13 @@
     private List<ArchivoTema> archivosTema = new();
     private bool uploadingFile = false;
     private string uploadError = "";
+
+    // --- Actividades del tema ---
+    private List<Activity> actividadesTema = new();
+    private bool showActivityCreateModal = false;
+    private CreateActivityRequest activityForm = new();
+    private string activityError = "";
+    private bool savingActivity = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -550,6 +730,7 @@
         editingTopicId = topic.Id;
         currentModifyingLessonId = lessonId;
         uploadError = "";
+        activityError = "";
         currentTopic = new CreateTemaRequest
         {
             LessonId = lessonId,
@@ -566,7 +747,15 @@
         shouldInitQuill = true;
         // Cargar archivos existentes
         archivosTema = await MaestroService.GetArchivosTemaAsync(topic.Id);
-        // Fix URLs for display (the service does this already, but ensure it)
+        // Cargar actividades existentes
+        try
+        {
+            actividadesTema = await ActivityService.GetActivitiesByTemaAsync(topic.Id);
+        }
+        catch
+        {
+            actividadesTema = new(); // Si hay error, inicializar lista vacía
+        }
     }
 
     private async Task SaveTopic()
@@ -687,7 +876,127 @@
             uploadError = "No se pudo eliminar el archivo.";
     }
 
-    // --- HELPERS DE ARCHIVO ---
+    // --- ACTIVIDADES DEL TEMA ---
+    private void OpenActivityCreateModal()
+    {
+        if (!editingTopicId.HasValue) return;
+
+        activityForm = new CreateActivityRequest
+        {
+            IdTema = editingTopicId.Value,
+            Titulo = "",
+            Descripcion = "",
+            Instrucciones = "",
+            Tipo = 0,
+            PuntosMaximos = 100,
+            MostrarRespuestas = false,
+            PermitirEnvioTarde = false,
+            Preguntas = new List<CreateActivityQuestionRequest>()
+        };
+        activityError = "";
+        showActivityCreateModal = true;
+    }
+
+    private async Task SaveNewActivityAsync()
+    {
+        if (string.IsNullOrWhiteSpace(activityForm.Titulo))
+        {
+            activityError = "El título es requerido";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(activityForm.Instrucciones))
+        {
+            activityError = "Las instrucciones son requeridas";
+            return;
+        }
+
+        if (!editingTopicId.HasValue)
+        {
+            activityError = "Guarda el tema primero";
+            return;
+        }
+
+        savingActivity = true;
+        activityError = "";
+        try
+        {
+            if (AuthService.CurrentUser == null)
+            {
+                await AuthService.InitializeAsync();
+            }
+
+            if (AuthService.CurrentUser == null)
+            {
+                activityError = "Sesión expirada. Por favor, inicie sesión de nuevo.";
+                savingActivity = false;
+                return;
+            }
+            
+            activityForm.IdTema = editingTopicId.Value;
+            var response = await ActivityService.CreateActivityAsync(AuthService.CurrentUser.Id, activityForm);
+
+            if (response.Success)
+            {
+                // Recargar actividades
+                try
+                {
+                    actividadesTema = await ActivityService.GetActivitiesByTemaAsync(editingTopicId.Value);
+                }
+                catch
+                {
+                    actividadesTema = new(); // Si hay error, inicializar lista vacía
+                }
+                showActivityCreateModal = false;
+                ShowAlert("Actividad creada exitosamente", "success");
+            }
+            else
+            {
+                activityError = response.Message ?? "Error al crear la actividad";
+            }
+        }
+        catch (Exception ex)
+        {
+            activityError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            savingActivity = false;
+        }
+    }
+
+    private async Task DeleteActivity(Guid activityId)
+    {
+        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "¿Estás seguro de que quieres eliminar esta actividad?");
+        if (!confirm) return;
+
+        try
+        {
+            var response = await ActivityService.DeleteActivityAsync(activityId);
+            if (response.Success || response.Message.Contains("success"))
+            {
+                actividadesTema.RemoveAll(a => a.IdActividad == activityId);
+                ShowAlert("Actividad eliminada", "success");
+            }
+            else
+            {
+                activityError = response.Message ?? "No se pudo eliminar";
+            }
+        }
+        catch (Exception ex)
+        {
+            activityError = $"Error: {ex.Message}";
+        }
+    }
+
+    private string GetActivityTypeLabel(int type) => type switch
+    {
+        0 => "Discusión",
+        1 => "Tarea",
+        2 => "Encuesta",
+        3 => "Foro",
+        _ => "Desconocido"
+    };
     private string GetFileIcon(string tipo) => tipo.ToLower() switch
     {
         "pdf" => "bi-file-earmark-pdf-fill",
@@ -727,6 +1036,7 @@
         ContentType.Test => "bi-ui-checks",
         ContentType.Archivo => "bi-file-earmark-pdf",
         ContentType.ClaseVirtual => "bi-camera-video",
+        ContentType.Activity => "bi-play-circle",
         _ => "bi-file-text"
     };
 
@@ -738,6 +1048,27 @@
         ContentType.Test => "Práctica / Cuestionario",
         ContentType.Archivo => "Archivo (PDF/Doc)",
         ContentType.ClaseVirtual => "Reunión Virtual (Zoom)",
+        ContentType.Activity => "Actividad / Práctica",
         _ => "Otro recurso"
     };
+    private async Task GoToCalificar(Guid temaId)
+    {
+        try
+        {
+            var activities = await ActivityService.GetActivitiesByTemaAsync(temaId);
+            var activity = activities.FirstOrDefault();
+            if (activity != null)
+            {
+                Navigation.NavigateTo($"/dashboard/maestro/actividades/{activity.IdActividad}/respuestas");
+            }
+            else
+            {
+                ShowAlert("No hay actividades creadas para este tema. Usa el botón 'Actividad' para crear una primero.", "warning");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error: {ex.Message}", "danger");
+        }
+    }
 }

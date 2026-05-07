@@ -10,6 +10,7 @@ public class LearningViewModel : ViewModelBase
     private readonly ICourseService _courseService;
     private readonly IEnrollmentService _enrollmentService;
     private readonly IAuthService _authService;
+    private readonly IActivityService _activityService;
 
     private Course? _course;
     public Course? Course
@@ -53,17 +54,25 @@ public class LearningViewModel : ViewModelBase
         set => SetProperty(ref _isSidebarOpen, value);
     }
 
+    private bool _hasUngradedActivities;
+    public bool HasUngradedActivities
+    {
+        get => _hasUngradedActivities;
+        set => SetProperty(ref _hasUngradedActivities, value);
+    }
+
     public double Progress => Enrollment?.Progress ?? 0;
 
     public int CompletedCount => Enrollment?.CompletedTopicIds.Count ?? 0;
 
     public int TotalTopics => Course?.Lessons.SelectMany(l => l.Topics ?? new List<Tema>()).Count() ?? 0;
 
-    public LearningViewModel(ICourseService courseService, IEnrollmentService enrollmentService, IAuthService authService)
+    public LearningViewModel(ICourseService courseService, IEnrollmentService enrollmentService, IAuthService authService, IActivityService activityService)
     {
         _courseService = courseService;
         _enrollmentService = enrollmentService;
         _authService = authService;
+        _activityService = activityService;
     }
 
     public async Task LoadCourseAsync(Guid courseId)
@@ -107,6 +116,7 @@ public class LearningViewModel : ViewModelBase
             }
 
             UpdateCurrentLessonStatus();
+            await CheckUngradedActivitiesAsync();
         }
         catch (Exception ex)
         {
@@ -177,7 +187,14 @@ public class LearningViewModel : ViewModelBase
         Enrollment = await _enrollmentService.GetEnrollmentAsync(Course.Id);
 
         UpdateCurrentLessonStatus();
+        await CheckUngradedActivitiesAsync();
         NotifyProgressChanged();
+    }
+
+    public async Task CheckUngradedActivitiesAsync()
+    {
+        if (Course == null) return;
+        HasUngradedActivities = await _activityService.HasUngradedActivitiesAsync(Course.Id);
     }
 
     public async Task CompleteAndNextAsync()

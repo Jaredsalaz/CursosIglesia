@@ -132,7 +132,7 @@
                     {
                         <div style="margin-bottom: 10px; position: relative; display: inline-block;">
                             <img src="@(apiBaseUrl + courseModel.ImagenUrl)" style="height: 120px; border-radius: 8px; object-fit: cover;" />
-                            <button type="button" @onclick="() => courseModel.ImagenUrl = null" style="position: absolute; top: 5px; right: 5px; background: white; border: none; border-radius: 50%; padding: 4px; cursor: pointer; color: red;">
+                            <button type="button" @onclick="ClearCourseImage" style="position: absolute; top: 5px; right: 5px; background: white; border: none; border-radius: 50%; padding: 4px; cursor: pointer; color: red;">
                                 <i class="bi bi-x-circle-fill"></i>
                             </button>
                         </div>
@@ -449,6 +449,8 @@
         assignMaestroId = course.MaestroId ?? course.IdMaestro ?? Guid.Empty;
         showAssignModal = true;
     }
+
+    private void ClearCourseImage() => courseModel.ImagenUrl = "";
 
     private async Task AssignCourse()
     {

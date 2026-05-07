@@ -1,0 +1,227 @@
+@page "/dashboard/maestro/calificaciones"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IMaestroService MaestroService
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <h1 style="margin:0; font-size:1.8rem; display:flex; align-items:center; gap:10px;">
+        <i class="bi bi-award" style="color:var(--dash-accent);"></i> Centro de Calificaciones
+    </h1>
+    <button class="dash-btn dash-btn-outline" @onclick="LoadData">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass" style="margin-bottom:16px;">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+@if (loading)
+{
+    <div class="dash-loading"><div class="dash-spinner"></div></div>
+}
+else if (!activityItems.Any())
+{
+    <div class="dash-empty" style="background:var(--dash-surface); border-radius:14px; padding:60px;">
+        <i class="bi bi-inbox" style="font-size:3rem; display:block; margin-bottom:16px; opacity:0.3;"></i>
+        <h4>Sin actividades pendientes</h4>
+        <p>No hay actividades creadas en tus cursos. Crea actividades desde la gestión de lecciones.</p>
+    </div>
+}
+else
+{
+    <!-- Resumen rápido -->
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:24px;">
+        <div class="metric-card" style="--metric-color: var(--dash-warning);">
+            <div class="metric-card-header">
+                <div class="metric-card-icon metric-icon-orange"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+            <div class="metric-card-value">@activityItems.Count(a => a.PendientesCalificar > 0)</div>
+            <div class="metric-card-label">Con entregas pendientes</div>
+        </div>
+        <div class="metric-card" style="--metric-color: var(--dash-success);">
+            <div class="metric-card-header">
+                <div class="metric-card-icon metric-icon-green"><i class="bi bi-check-circle"></i></div>
+            </div>
+            <div class="metric-card-value">@activityItems.Count(a => a.PendientesCalificar == 0 && a.TotalEntregas > 0)</div>
+            <div class="metric-card-label">Completamente calificadas</div>
+        </div>
+        <div class="metric-card" style="--metric-color: var(--dash-info);">
+            <div class="metric-card-header">
+                <div class="metric-card-icon metric-icon-blue"><i class="bi bi-file-earmark-text"></i></div>
+            </div>
+            <div class="metric-card-value">@activityItems.Count</div>
+            <div class="metric-card-label">Total actividades</div>
+        </div>
+    </div>
+
+    <!-- Lista de actividades -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+        @foreach (var item in activityItems.OrderByDescending(a => a.PendientesCalificar))
+        {
+            <div class="dash-panel" style="overflow:hidden; border-left:4px solid @(item.PendientesCalificar > 0 ? "var(--dash-warning)" : "var(--dash-success)");">
+                <div style="padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:700; font-size:1rem; color:var(--dash-text); margin-bottom:4px;">
+                            @item.TituloActividad
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--dash-text-muted); display:flex; gap:16px; flex-wrap:wrap;">
+                            <span><i class="bi bi-journal-bookmark" style="color:var(--dash-accent);"></i> @item.NombreCurso</span>
+                            <span><i class="bi bi-bookmark-star"></i> @item.NombreTema</span>
+                            <span><i class="bi bi-star"></i> @item.PuntosMaximos pts máx</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                        @if (item.PendientesCalificar > 0)
+                        {
+                            <span class="dash-badge dash-badge-warning" style="font-size:0.85rem; padding:6px 12px;">
+                                <i class="bi bi-exclamation-circle"></i> @item.PendientesCalificar pendiente(s)
+                            </span>
+                        }
+                        else if (item.TotalEntregas > 0)
+                        {
+                            <span class="dash-badge dash-badge-success" style="font-size:0.85rem; padding:6px 12px;">
+                                <i class="bi bi-check-circle"></i> Todo calificado
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="dash-badge dash-badge-info" style="font-size:0.85rem; padding:6px 12px;">
+                                Sin entregas aún
+                            </span>
+                        }
+                        <a href="/dashboard/maestro/actividades/@item.IdActividad/respuestas" class="dash-btn dash-btn-gold dash-btn-sm" style="padding:8px 16px;">
+                            <i class="bi bi-award"></i> Calificar
+                        </a>
+                    </div>
+                </div>
+                <!-- Progress bar -->
+                @if (item.TotalEntregas > 0)
+                {
+                    <div style="padding:0 20px 12px;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--dash-text-muted); margin-bottom:4px;">
+                            <span>@item.Calificadas de @item.TotalEntregas calificadas</span>
+                            <span>@((item.TotalEntregas > 0 ? (item.Calificadas * 100 / item.TotalEntregas) : 0))%</span>
+                        </div>
+                        <div class="dash-progress">
+                            <div class="dash-progress-bar" style="width:@((item.TotalEntregas > 0 ? (item.Calificadas * 100 / item.TotalEntregas) : 0))%"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private string? alertMessage;
+    private string alertClass = "";
+    private string alertIcon = "";
+    private List<ActivityGradingItem> activityItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        alertMessage = null;
+        activityItems.Clear();
+
+        try
+        {
+            // Get all courses for this teacher
+            var courses = await MaestroService.GetMaestroCoursesAsync(AuthService.CurrentUser?.Id ?? Guid.Empty);
+
+            foreach (var course in courses)
+            {
+                // Get lessons for each course
+                var lessons = await MaestroService.GetLeccionesCursoAsync(course.Id);
+
+                foreach (var lesson in lessons)
+                {
+                    // Get topics for each lesson
+                    var topics = await MaestroService.GetTemasLeccionAsync(lesson.Id);
+
+                    foreach (var topic in topics)
+                    {
+                        // Get activities for each topic
+                        try
+                        {
+                            var activities = await ActivityService.GetActivitiesByTemaAsync(topic.Id);
+                            foreach (var activity in activities)
+                            {
+                                // Get submissions count
+                                try
+                                {
+                                    var submissions = await ActivityService.GetStudentSubmissionsAsync(activity.IdActividad);
+                                    var totalEntregas = submissions.Count(s => s.EstaCompletado);
+                                    var calificadas = submissions.Count(s => s.EstaCompletado && s.TotalPuntosGanados.HasValue && s.TotalPuntosGanados > 0);
+
+                                    activityItems.Add(new ActivityGradingItem
+                                    {
+                                        IdActividad = activity.IdActividad,
+                                        TituloActividad = activity.Titulo,
+                                        NombreCurso = course.Title,
+                                        NombreTema = topic.Title,
+                                        PuntosMaximos = activity.PuntosMaximos,
+                                        TotalEntregas = totalEntregas,
+                                        Calificadas = calificadas,
+                                        PendientesCalificar = totalEntregas - calificadas
+                                    });
+                                }
+                                catch
+                                {
+                                    // If submissions query fails, still show the activity
+                                    activityItems.Add(new ActivityGradingItem
+                                    {
+                                        IdActividad = activity.IdActividad,
+                                        TituloActividad = activity.Titulo,
+                                        NombreCurso = course.Title,
+                                        NombreTema = topic.Title,
+                                        PuntosMaximos = activity.PuntosMaximos,
+                                        TotalEntregas = 0,
+                                        Calificadas = 0,
+                                        PendientesCalificar = 0
+                                    });
+                                }
+                            }
+                        }
+                        catch { /* Topic may not have activities */ }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            alertMessage = $"Error al cargar: {ex.Message}";
+            alertClass = "dash-alert-danger";
+            alertIcon = "bi-exclamation-triangle";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private class ActivityGradingItem
+    {
+        public Guid IdActividad { get; set; }
+        public string TituloActividad { get; set; } = "";
+        public string NombreCurso { get; set; } = "";
+        public string NombreTema { get; set; } = "";
+        public int PuntosMaximos { get; set; }
+        public int TotalEntregas { get; set; }
+        public int Calificadas { get; set; }
+        public int PendientesCalificar { get; set; }
+    }
+}

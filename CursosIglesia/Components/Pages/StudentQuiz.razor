@@ -271,7 +271,7 @@ else
 
     private void NextQuestion()
     {
-        if (CanProceed() && currentQuestionIndex < quiz.Preguntas.Count - 1)
+        if (CanProceed() && quiz != null && currentQuestionIndex < quiz.Preguntas.Count - 1)
         {
             currentQuestionIndex++;
         }

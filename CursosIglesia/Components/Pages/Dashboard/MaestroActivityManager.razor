@@ -1,0 +1,325 @@
+@page "/dashboard/maestro/actividades/{ActivityId:guid}/respuestas"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+
+<!-- Header -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <a href="javascript:history.back()" class="dash-btn dash-btn-outline dash-btn-sm">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+    <h1 style="margin:0;">📋 Respuestas - @(activity?.Titulo ?? "Cargando...")</h1>
+    <button class="dash-btn dash-btn-info" @onclick="RefreshData">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </button>
+</div>
+
+<!-- Stats Bar -->
+@if (stats != null)
+{
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:15px; margin-bottom:20px;">
+        <div class="dash-stat" style="background:var(--dash-panel-bg); padding:15px; border-radius:8px; text-align:center;">
+            <div style="font-size:2rem; font-weight:bold; color:var(--color-primary);">@(submissions?.Count ?? 0)</div>
+            <small style="color:var(--dash-text-muted);">Estudiantes</small>
+        </div>
+        <div class="dash-stat" style="background:var(--dash-panel-bg); padding:15px; border-radius:8px; text-align:center;">
+            <div style="font-size:2rem; font-weight:bold; color:var(--color-success);">@stats.RespuestasCompletadas</div>
+            <small style="color:var(--dash-text-muted);">Respondidas</small>
+        </div>
+        <div class="dash-stat" style="background:var(--dash-panel-bg); padding:15px; border-radius:8px; text-align:center;">
+            <div style="font-size:2rem; font-weight:bold; color:var(--color-warning);">@stats.PorcentajeCompletado.ToString("F0")%</div>
+            <small style="color:var(--dash-text-muted);">Completación</small>
+        </div>
+        <div class="dash-stat" style="background:var(--dash-panel-bg); padding:15px; border-radius:8px; text-align:center;">
+            <div style="font-size:2rem; font-weight:bold; color:var(--color-info);">@stats.PuntajePromedio.ToString("F1")</div>
+            <small style="color:var(--dash-text-muted);">Promedio</small>
+        </div>
+    </div>
+}
+
+<!-- Alert -->
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass" style="margin-bottom:20px;">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<!-- Loading State -->
+@if (loading)
+{
+    <div class="dash-panel">
+        <div style="text-align:center; padding:40px;">
+            <div class="dash-spinner"></div>
+            <p>Cargando respuestas...</p>
+        </div>
+    </div>
+}
+else if (submissions != null && submissions.Any())
+{
+    <!-- Submissions Accordion -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+        @foreach (var (submission, idx) in submissions.Select((s, i) => (s, i)))
+        {
+            <div class="dash-panel" style="overflow:hidden;">
+                <!-- Student Header -->
+                <div class="dash-panel-header" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding:15px 20px; background:var(--dash-panel-bg); border-bottom:1px solid var(--dash-border);"
+                     @onclick="() => ToggleSubmission(idx)">
+                    <div style="display:flex; align-items:center; gap:15px; flex:1;">
+                        <div style="width:40px; height:40px; background:var(--color-primary); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;">
+                            @submission.NombreEstudiante?[0]
+                        </div>
+                        <div>
+                            <div style="font-weight:600; color:var(--dash-text);">@submission.NombreEstudiante</div>
+                            <small style="color:var(--dash-text-muted);">@submission.EmailEstudiante</small>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        @if (submission.EstaCompletado)
+                        {
+                            <span class="dash-badge dash-badge-success">
+                                <i class="bi bi-check-circle"></i> Respondida
+                            </span>
+                            <span class="dash-badge dash-badge-info">
+                                @submission.TotalPuntosGanados?.ToString("F0") / @submission.PuntosMaximos pts
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="dash-badge dash-badge-warning">
+                                <i class="bi bi-hourglass-split"></i> Pendiente
+                            </span>
+                        }
+                        <i class="bi @(expandedSubmissions.Contains(idx) ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    </div>
+                </div>
+
+                <!-- Submission Details -->
+                @if (expandedSubmissions.Contains(idx))
+                {
+                    <div style="padding:20px; background:rgba(0,0,0,0.02);">
+                        @if (submission.EstaCompletado)
+                        {
+                            <div style="margin-bottom:20px;">
+                                <div style="font-weight:600; margin-bottom:10px; color:var(--dash-text);">Enviado: @(submission.FechaEnvio.ToString("g"))</div>
+                            </div>
+
+                            <!-- Responses Display -->
+                            <div style="display:flex; flex-direction:column; gap:15px;">
+                                <!-- Load and display responses for this student -->
+                                <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => LoadStudentResponses(submission.IdUsuario)">
+                                    <i class="bi bi-eye"></i> Ver Respuestas Detalladas
+                                </button>
+
+                                @if (currentStudentResponses != null && studentResponsesLoaded)
+                                {
+                                    @foreach (var response in currentStudentResponses)
+                                    {
+                                        <div style="background:var(--dash-panel-bg); padding:15px; border-radius:8px; border-left:3px solid var(--color-primary);">
+                                            <div style="font-weight:600; margin-bottom:8px; color:var(--dash-text);">
+                                                @response.TextoPregunta
+                                            </div>
+                                            <div style="background:white; padding:10px; border-radius:4px; margin-bottom:10px; font-size:0.95rem; color:var(--dash-text);">
+                                                @if (response.Respuesta.StartsWith("http") || response.Respuesta.Contains("/uploads/"))
+                                                {
+                                                    <div style="display:flex; align-items:center; gap:10px; padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6;">
+                                                        <i class="bi bi-file-earmark-arrow-down" style="font-size:1.5rem; color:var(--color-primary);"></i>
+                                                        <div style="flex:1;">
+                                                            <div style="font-weight:600; font-size:0.85rem;">Archivo entregado</div>
+                                                            <a href="@response.Respuesta" target="_blank" class="dash-link" style="font-size:0.8rem; word-break:break-all;">
+                                                                Ver o descargar archivo
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    @response.Respuesta
+                                                }
+                                            </div>
+
+                                            <!-- Feedback Section -->
+                                            <div style="margin-top:10px;">
+                                                <label style="font-size:0.9rem; font-weight:600; color:var(--dash-text); display:block; margin-bottom:5px;">
+                                                    Calificación: @(response.PuntosGanados ?? 0) pts
+                                                </label>
+                                                <div style="display:flex; gap:10px;">
+                                                    <input type="number" @bind="feedbackData[response.Id].Points" min="0" max="@activity?.PuntosMaximos"
+                                                           placeholder="Puntos" class="dash-input" style="width:100px;" />
+                                                    <textarea @bind="feedbackData[response.Id].Feedback" placeholder="Comentario para el estudiante"
+                                                              class="dash-input" rows="2" style="flex:1;"></textarea>
+                                                    <button class="dash-btn dash-btn-success dash-btn-sm" @onclick="() => SaveFeedback(response.Id)">
+                                                        <i class="bi bi-check-circle"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            @if (!string.IsNullOrEmpty(response.Feedback))
+                                            {
+                                                <div style="margin-top:10px; padding:10px; background:#f0f8ff; border-radius:4px; border-left:3px solid var(--color-info);">
+                                                    <small style="color:var(--dash-text-muted);">Feedback anterior:</small>
+                                                    <div style="color:var(--dash-text); margin-top:5px;">@response.Feedback</div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="text-align:center; padding:20px; color:var(--dash-text-muted);">
+                                <i class="bi bi-clock-history" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                                Este estudiante aún no ha respondido la actividad.
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="dash-panel">
+        <div style="text-align:center; padding:40px; color:var(--dash-text-muted);">
+            <i class="bi bi-inbox" style="font-size:3rem; display:block; margin-bottom:10px;"></i>
+            <p>No hay respuestas aún. Los estudiantes verán la actividad cuando la publiques.</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid ActivityId { get; set; }
+
+    private Activity? activity;
+    private List<StudentActivityResponseItem>? submissions;
+    private ActivityStatsDto? stats;
+    private List<ActivityResponseDto>? currentStudentResponses;
+    private bool studentResponsesLoaded = false;
+    private HashSet<int> expandedSubmissions = new();
+    private Dictionary<Guid, FeedbackData> feedbackData = new();
+    private bool loading = true;
+    private string? alertMessage;
+    private string alertClass = "";
+    private string alertIcon = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            loading = true;
+            activity = await ActivityService.GetActivityAsync(ActivityId);
+            submissions = await ActivityService.GetStudentSubmissionsAsync(ActivityId);
+            stats = await ActivityService.GetActivityStatsAsync(ActivityId);
+
+            // Initialize feedback data
+            foreach (var sub in submissions ?? new())
+            {
+                feedbackData[sub.IdUsuario] = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al cargar: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ToggleSubmission(int index)
+    {
+        if (expandedSubmissions.Contains(index))
+            expandedSubmissions.Remove(index);
+        else
+            expandedSubmissions.Add(index);
+    }
+
+    private async Task LoadStudentResponses(Guid userId)
+    {
+        try
+        {
+            currentStudentResponses = await ActivityService.GetStudentResponseAsync(userId, ActivityId);
+            studentResponsesLoaded = true;
+
+            // Initialize feedback data for responses
+            foreach (var response in currentStudentResponses ?? new())
+            {
+                if (!feedbackData.ContainsKey(response.Id))
+                {
+                    feedbackData[response.Id] = new() { Points = response.PuntosGanados ?? 0, Feedback = response.Feedback ?? "" };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al cargar respuestas: {ex.Message}");
+        }
+    }
+
+    private async Task SaveFeedback(Guid responseId)
+    {
+        try
+        {
+            var feedback = feedbackData[responseId];
+            var request = new AddFeedbackRequest
+            {
+                IdRespuesta = responseId,
+                PuntosGanados = feedback.Points,
+                Feedback = feedback.Feedback
+            };
+
+            var response = await ActivityService.AddFeedbackAsync(request);
+            if (response.Success)
+            {
+                ShowSuccess("Feedback guardado!");
+                await LoadData();
+            }
+            else
+            {
+                ShowError(response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al guardar feedback: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+        ShowSuccess("Datos actualizados!");
+    }
+
+    private void ShowError(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-danger";
+        alertIcon = "bi-exclamation-triangle";
+    }
+
+    private void ShowSuccess(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-success";
+        alertIcon = "bi-check-circle";
+    }
+
+    private class FeedbackData
+    {
+        public int Points { get; set; }
+        public string Feedback { get; set; } = "";
+    }
+}

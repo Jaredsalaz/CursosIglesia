@@ -74,8 +74,16 @@ public class ApiMaestroService : IMaestroService
     public async Task<ApiResponse> EliminarTemaAsync(Guid temaId)
     {
         var response = await _httpClient.DeleteAsync($"/api/maestro/topics/{temaId}");
-        return await response.Content.ReadFromJsonAsync<ApiResponse>()
-            ?? new ApiResponse { Success = false, Message = "Error de conexión" };
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<ApiResponse>()
+                ?? new ApiResponse { Success = false, Message = "Error de conexión" };
+        }
+        catch
+        {
+            var raw = await response.Content.ReadAsStringAsync();
+            return new ApiResponse { Success = false, Message = $"Error del servidor: {raw}" };
+        }
     }
 
     public async Task<List<EnrollmentDetail>> GetInscripcionesCursoAsync(Guid courseId)
@@ -134,6 +142,36 @@ public class ApiMaestroService : IMaestroService
     {
         var response = await _httpClient.DeleteAsync($"api/upload/topic-file/{archivoId}");
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<string?> SubirArchivoEntregaAsync(Guid temaId, Stream fileStream, string fileName, string contentType)
+    {
+        using var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        content.Add(fileContent, "file", fileName);
+
+        var response = await _httpClient.PostAsync($"api/upload/activity-submission?temaId={temaId}", content);
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var json = await response.Content.ReadFromJsonAsync<SubmissionUploadResponse>();
+        if (json?.Success == true && !string.IsNullOrEmpty(json.Url))
+        {
+            var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+            if (!string.IsNullOrEmpty(baseUrl) && json.Url.StartsWith("/"))
+                return baseUrl + json.Url;
+
+            return json.Url;
+        }
+        return null;
+    }
+
+    private class SubmissionUploadResponse
+    {
+        public bool Success { get; set; }
+        public string? Url { get; set; }
     }
 
     private void FixUrls(Course course)

@@ -4,12 +4,14 @@
 @using System.Web
 @using System.ComponentModel
 @using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
 @implements IDisposable
 @attribute [Authorize]
 @inject LearningViewModel ViewModel
 @inject NavigationManager Navigation
 @inject IMaestroService MaestroService
 @inject CursosIglesia.Services.Interfaces.ICertificateService CertificateService
+@inject IActivityService ActivityService
 
 <PageTitle>@(ViewModel.Course?.Title ?? "Aprendiendo") - Cursos Católicos</PageTitle>
 
@@ -228,6 +230,32 @@ else if (ViewModel.Course != null)
                                         </div>
                                     }
                                 }
+                                else if (topic.ContentType == ContentType.Activity)
+                                {
+                                    <div class="topic-activity-container mt-4">
+                                        @if (currentActivity != null)
+                                        {
+                                            <StudentActivityView ActivityId="@currentActivity.IdActividad" 
+                                                                TemaId="@topic.Id" 
+                                                                CourseId="@CourseId" 
+                                                                IsEmbedded="true"
+                                                                OnSubmitted="ViewModel.CheckUngradedActivitiesAsync" />
+                                        }
+                                        else if (loadingActivity)
+                                        {
+                                            <div class="text-center p-5">
+                                                <div class="spinner-border text-primary" role="status"></div>
+                                                <p class="mt-2">Cargando actividad...</p>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-info">
+                                                <i class="bi bi-info-circle me-2"></i> No hay una actividad configurada para este tema.
+                                            </div>
+                                        }
+                                    </div>
+                                }
                                 else
                                 {
                                     <div class="topic-generic-content">
@@ -236,6 +264,21 @@ else if (ViewModel.Course != null)
                                         {
                                             <a href="@topic.ContentUrl" target="_blank" class="btn btn-primary">Ver contenido externo</a>
                                         }
+                                    </div>
+                                }
+
+                                @if (topic.ContentType != ContentType.Activity && currentActivity != null)
+                                {
+                                    <div class="topic-activity-container mt-5">
+                                        <div style="border-left: 4px solid #0d6efd; padding-left: 15px; margin-bottom: 20px;">
+                                            <h4 style="margin:0; color:#0d6efd;">🎯 Actividad Práctica</h4>
+                                            <p style="margin:0; color:#666;">Completa esta actividad para reforzar lo aprendido.</p>
+                                        </div>
+                                        <StudentActivityView ActivityId="@currentActivity.IdActividad" 
+                                                            TemaId="@topic.Id" 
+                                                            CourseId="@CourseId" 
+                                                            IsEmbedded="true"
+                                                            OnSubmitted="ViewModel.CheckUngradedActivitiesAsync" />
                                     </div>
                                 }
 
@@ -324,9 +367,21 @@ else if (ViewModel.Course != null)
                         <div class="lesson-action-buttons">
                             @if (ViewModel.Progress >= 100)
                             {
-                                <button class="btn-gold" @onclick="GoToCertificate">
-                                    <i class="bi bi-award-fill me-1"></i> ¡Felicidades! Descargar Certificado
-                                </button>
+                                @if (ViewModel.HasUngradedActivities)
+                                {
+                                    <div class="alert alert-warning mb-0" style="font-size: 0.9rem;">
+                                        <i class="bi bi-info-circle me-1"></i> El certificado estará disponible cuando el maestro califique todas tus actividades.
+                                    </div>
+                                    <button class="btn-gold opacity-50" style="cursor: not-allowed;" disabled>
+                                        <i class="bi bi-award-fill me-1"></i> Certificado (Pendiente Calificación)
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn-gold" @onclick="GoToCertificate">
+                                        <i class="bi bi-award-fill me-1"></i> ¡Felicidades! Descargar Certificado
+                                    </button>
+                                }
                             }
                             else if (!ViewModel.IsCurrentLessonCompleted)
                             {
@@ -363,6 +418,8 @@ else if (ViewModel.Course != null)
 
     private bool _isInitialized = false;
     private List<ArchivoTema> archivosTema = new();
+    private CursosIglesia.Models.DTOs.Activity? currentActivity;
+    private bool loadingActivity = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -373,7 +430,10 @@ else if (ViewModel.Course != null)
             await ViewModel.LoadCourseAsync(CourseId);
             // Load attachments for the first topic selected
             if (ViewModel.CurrentTopic != null)
+            {
                 await LoadArchivosTema(ViewModel.CurrentTopic.Id);
+                await LoadActivity(ViewModel.CurrentTopic.Id);
+            }
             StateHasChanged();
         }
     }
@@ -392,6 +452,7 @@ else if (ViewModel.Course != null)
                 InvokeAsync(async () =>
                 {
                     await LoadArchivosTema(topicId);
+                    await LoadActivity(topicId);
                     StateHasChanged();
                 });
                 return;
@@ -450,6 +511,28 @@ else if (ViewModel.Course != null)
         catch { archivosTema = new(); }
     }
 
+    private async Task LoadActivity(Guid temaId)
+    {
+        Console.WriteLine($"[Aprender] Cargando actividad para tema: {temaId}");
+        loadingActivity = true;
+        currentActivity = null;
+        try
+        {
+            var activities = await ActivityService.GetActivitiesByTemaAsync(temaId);
+            currentActivity = activities.FirstOrDefault();
+            Console.WriteLine($"[Aprender] Actividad encontrada: {(currentActivity != null ? currentActivity.Titulo : "Ninguna")}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Aprender] Error cargando actividad: {ex.Message}");
+        }
+        finally
+        {
+            loadingActivity = false;
+            StateHasChanged();
+        }
+    }
+
     private string GetTopicIcon(ContentType type) => type switch
     {
         ContentType.VideoSubido => "bi-play-circle",
@@ -458,6 +541,7 @@ else if (ViewModel.Course != null)
         ContentType.Test => "bi-card-checklist",
         ContentType.Archivo => "bi-file-earmark-pdf",
         ContentType.ClaseVirtual => "bi-camera-video",
+        ContentType.Activity => "bi-pencil-square",
         _ => "bi-file-text"
     };
 
@@ -513,5 +597,12 @@ else if (ViewModel.Course != null)
         background: rgba(13, 110, 253, 0.1);
         border-right: 3px solid #0d6efd;
         font-weight: 600;
+    }
+    .topic-activity-container {
+        background: #fcfcfc;
+        border-radius: 12px;
+        border: 1px solid #eee;
+        padding: 20px;
+        margin-top: 2rem;
     }
 </style>

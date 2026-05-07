@@ -1,0 +1,364 @@
+@page "/dashboard/maestro/actividades/{TemaId:guid}"
+@layout CursosIglesia.Components.Layout.DashboardLayout
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
+@using CursosIglesia.Models
+@using CursosIglesia.Models.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Text.Json
+
+<!-- Header -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <a href="/dashboard/maestro/cursos" class="dash-btn dash-btn-outline dash-btn-sm">
+        <i class="bi bi-arrow-left"></i> Volver a Lecciones
+    </a>
+    <h1 style="margin:0; font-size:1.8rem;"><i class="bi bi-file-earmark-text"></i> Constructor de Actividades</h1>
+    <button class="dash-btn dash-btn-success" @onclick="SaveActivity" disabled="@isSaving">
+        <i class="bi @(isSaving ? "bi-hourglass-split" : "bi-check-circle")"></i>
+        @(isSaving ? "Guardando..." : "Guardar Actividad")
+    </button>
+</div>
+
+<!-- Alert Messages -->
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="dash-alert @alertClass">
+        <i class="bi @alertIcon"></i> @alertMessage
+    </div>
+}
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <!-- LEFT PANEL: Form -->
+    <div class="dash-panel">
+        <div class="dash-panel-header">
+            <span class="dash-panel-title"><i class="bi bi-pencil-square"></i> Detalles de la Actividad</span>
+        </div>
+
+        <!-- Activity Type Selection -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Tipo de Actividad <span style="color:red;">*</span></label>
+            <select @bind="formData.Tipo" class="dash-input" style="width:100%;">
+                <option value="">-- Selecciona un tipo --</option>
+                <option value="0">📝 Discusión - Preguntas dinámicas</option>
+                <option value="1">📋 Tarea - Trabajo a entregar</option>
+                <option value="2">📊 Encuesta - Recolectar opiniones</option>
+                <option value="3">💬 Foro - Conversación abierta</option>
+            </select>
+        </div>
+
+        <!-- Title -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Título <span style="color:red;">*</span></label>
+            <input type="text" @bind="formData.Titulo" placeholder="Ej: Discusión sobre la lección 5" class="dash-input" style="width:100%;" />
+        </div>
+
+        <!-- Description -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Descripción</label>
+            <textarea @bind="formData.Descripcion" placeholder="Descripción breve de la actividad" class="dash-input" rows="3" style="width:100%;"></textarea>
+        </div>
+
+        <!-- Instructions -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Instrucciones <span style="color:red;">*</span></label>
+            <textarea @bind="formData.Instrucciones" placeholder="Instrucciones detalladas para los estudiantes" class="dash-input" rows="4" style="width:100%;"></textarea>
+        </div>
+
+        <!-- Due Date -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Fecha de Entrega (opcional)</label>
+            <input type="datetime-local" @bind="formData.FechaEntrega" class="dash-input" style="width:100%;" />
+        </div>
+
+        <!-- Max Points -->
+        <div style="margin-bottom:20px;">
+            <label class="dash-label">Puntos Máximos</label>
+            <input type="number" @bind="formData.PuntosMaximos" min="0" class="dash-input" style="width:100%;" />
+        </div>
+
+        <!-- Options -->
+        <div style="margin-bottom:20px; display:flex; gap:15px;">
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" @bind="formData.MostrarRespuestas" />
+                <span>Mostrar respuestas a todos</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" @bind="formData.PermitirEnvioTarde" />
+                <span>Permitir envíos atrasados</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Question Builder -->
+    <div class="dash-panel">
+        <div class="dash-panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="dash-panel-title"><i class="bi bi-question-circle"></i> Preguntas</span>
+            <span class="dash-badge dash-badge-info">@formData.Preguntas.Count preguntas</span>
+        </div>
+
+        <!-- Add Question Buttons -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+            <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => AddQuestion(0)">
+                <i class="bi bi-chat-square-dots"></i> Respuesta Corta
+            </button>
+            <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => AddQuestion(1)">
+                <i class="bi bi-chat-left-dots"></i> Respuesta Larga
+            </button>
+            <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => AddQuestion(2)">
+                <i class="bi bi-check-circle"></i> Opción Múltiple
+            </button>
+            <button class="dash-btn dash-btn-primary dash-btn-sm" @onclick="() => AddQuestion(6)">
+                <i class="bi bi-file-earmark-arrow-up"></i> Subir Archivo
+            </button>
+        </div>
+
+        <!-- Questions List -->
+        @if (formData.Preguntas.Any())
+        {
+            <div class="questions-accordion" style="display:flex; flex-direction:column; gap:10px;">
+                @foreach (var (question, index) in formData.Preguntas.Select((q, i) => (q, i)))
+                {
+                    <div class="question-item" style="background:var(--dash-panel-bg); border-left:3px solid var(--color-primary); padding:15px; border-radius:8px;">
+                        <!-- Question Header -->
+                        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+                            <div style="flex:1;">
+                                <input type="text" @bind="question.TextoPregunta" placeholder="Texto de la pregunta"
+                                       class="dash-input" style="width:100%; margin-bottom:8px;" />
+                                <small style="color:var(--dash-text-muted);">
+                                    Tipo: @GetQuestionTypeName((ActivityQuestionType)question.TipoPregunta) |
+                                    Puntos: @question.Puntos
+                                </small>
+                            </div>
+                            <button class="dash-btn dash-btn-danger dash-btn-sm" @onclick="() => RemoveQuestion(index)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- Question Details -->
+                        <div style="display:flex; gap:10px; margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; gap:5px;">
+                                <input type="checkbox" @bind="question.EsObligatoria" />
+                                <small>Obligatoria</small>
+                            </label>
+                            <input type="number" @bind="question.Puntos" min="1" placeholder="Puntos"
+                                   class="dash-input" style="width:80px;" />
+                        </div>
+
+                        <!-- Question-specific inputs -->
+                        @if (question.TipoPregunta == 2) // MultipleChoice
+                        {
+                            <div style="margin-top:10px;">
+                                <label style="font-size:0.9rem; font-weight:600;">Opciones:</label>
+                                <div style="display:flex; flex-direction:column; gap:5px; margin-top:5px;">
+                                    @if (question.Opciones == null)
+                                    {
+                                        question.Opciones = new List<string> { "", "", "" };
+                                    }
+                                    @foreach (var (option, optIndex) in question.Opciones.Select((o, i) => (o, i)))
+                                    {
+                                        <div style="display:flex; gap:5px; align-items:center;">
+                                            <input type="text" @bind:event="oninput" @bind="question.Opciones[optIndex]"
+                                                   placeholder="Opción @((char)('A' + optIndex))" class="dash-input" style="flex:1;" />
+                                            <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => RemoveOption(index, optIndex)">
+                                                <i class="bi bi-dash"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                    <button class="dash-btn dash-btn-outline dash-btn-sm" @onclick="() => AddOption(index)">
+                                        <i class="bi bi-plus"></i> Agregar Opción
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Feedback -->
+                        <div style="margin-top:10px;">
+                            <label style="font-size:0.9rem; font-weight:600;">Feedback (opcional):</label>
+                            <textarea @bind="question.TextoFeedback" placeholder="Feedback para mostrar"
+                                      class="dash-input" rows="2" style="width:100%; margin-top:5px;"></textarea>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div style="padding:30px; text-align:center; color:var(--dash-text-muted); border:2px dashed var(--dash-border); border-radius:8px;">
+                <i class="bi bi-inbox" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                <p>No hay preguntas aún. Agrega preguntas de los botones arriba.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid TemaId { get; set; }
+
+    private CreateActivityRequest formData = new();
+    private bool isSaving = false;
+    private string? alertMessage;
+    private string alertClass = "";
+    private string alertIcon = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        formData.IdTema = TemaId;
+        formData.Preguntas = new();
+    }
+
+    private void AddQuestion(int type)
+    {
+        formData.Preguntas.Add(new CreateActivityQuestionRequest
+        {
+            TipoPregunta = type,
+            Orden = formData.Preguntas.Count + 1,
+            Puntos = 10,
+            EsObligatoria = true,
+            TextoPregunta = "",
+            Opciones = type == 2 ? new List<string> { "", "", "" } : null
+        });
+    }
+
+    private void RemoveQuestion(int index)
+    {
+        if (index >= 0 && index < formData.Preguntas.Count)
+        {
+            formData.Preguntas.RemoveAt(index);
+            for (int i = 0; i < formData.Preguntas.Count; i++)
+            {
+                formData.Preguntas[i].Orden = i + 1;
+            }
+        }
+    }
+
+    private void AddOption(int questionIndex)
+    {
+        if (questionIndex >= 0 && questionIndex < formData.Preguntas.Count)
+        {
+            var question = formData.Preguntas[questionIndex];
+            if (question.Opciones == null)
+                question.Opciones = new List<string>();
+
+            question.Opciones.Add("");
+        }
+    }
+
+    private void RemoveOption(int questionIndex, int optionIndex)
+    {
+        if (questionIndex >= 0 && questionIndex < formData.Preguntas.Count)
+        {
+            var question = formData.Preguntas[questionIndex];
+            if (question.Opciones != null && optionIndex >= 0 && optionIndex < question.Opciones.Count)
+            {
+                question.Opciones.RemoveAt(optionIndex);
+            }
+        }
+    }
+
+    private string GetQuestionTypeName(ActivityQuestionType type) => type switch
+    {
+        ActivityQuestionType.ShortText => "Respuesta Corta",
+        ActivityQuestionType.LongText => "Respuesta Larga",
+        ActivityQuestionType.MultipleChoice => "Opción Múltiple",
+        ActivityQuestionType.Ranking => "Ranking",
+        ActivityQuestionType.Rating => "Rating",
+        ActivityQuestionType.Matching => "Emparejar",
+        ActivityQuestionType.FileUpload => "Subida de Archivo",
+        _ => "Desconocido"
+    };
+
+    private async Task SaveActivity()
+    {
+        if (!ValidateForm()) return;
+
+        try
+        {
+            if (AuthService.CurrentUser == null)
+            {
+                // Intento final de inicializar
+                await AuthService.InitializeAsync();
+            }
+
+            if (AuthService.CurrentUser == null)
+            {
+                alertMessage = "❌ Sesión expirada. Por favor, inicie sesión de nuevo.";
+                alertClass = "dash-alert-danger";
+                alertIcon = "bi-exclamation-triangle";
+                isSaving = false;
+                return;
+            }
+
+            isSaving = true;
+            var response = await ActivityService.CreateActivityAsync(AuthService.CurrentUser.Id, formData);
+
+            if (response.Success)
+            {
+                alertMessage = "✅ Actividad guardada exitosamente!";
+                alertClass = "dash-alert-success";
+                alertIcon = "bi-check-circle";
+                await JSRuntime.InvokeVoidAsync("window.scrollTo", 0, 0);
+                // Limpiar formulario después de 2 segundos
+                await Task.Delay(2000);
+                // Aquí podrías redirigir a la lista de actividades
+            }
+            else
+            {
+                ShowError(response.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error al guardar: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        if (string.IsNullOrWhiteSpace(formData.Titulo))
+        {
+            ShowError("El título es requerido");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(formData.Instrucciones))
+        {
+            ShowError("Las instrucciones son requeridas");
+            return false;
+        }
+
+        if (!formData.Preguntas.Any())
+        {
+            ShowError("Debes agregar al menos una pregunta");
+            return false;
+        }
+
+        if (formData.Preguntas.Any(q => string.IsNullOrWhiteSpace(q.TextoPregunta)))
+        {
+            ShowError("Todas las preguntas deben tener texto");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ShowError(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-danger";
+        alertIcon = "bi-exclamation-triangle";
+    }
+
+    private void ShowSuccess(string message)
+    {
+        alertMessage = message;
+        alertClass = "dash-alert-success";
+        alertIcon = "bi-check-circle";
+    }
+}
