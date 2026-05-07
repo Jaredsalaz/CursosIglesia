@@ -167,4 +167,49 @@ public class FileUploadController : ControllerBase
 
         return Ok(new { success = true, message = "Archivo eliminado" });
     }
+
+    [HttpPost("activity-submission")]
+    public async Task<ActionResult> UploadActivitySubmission(IFormFile file, [FromQuery] Guid temaId)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No se seleccionó ningún archivo" });
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf", ".doc", ".docx" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new { success = false, message = "Tipo no permitido. Use: jpg, png, webp, pdf, doc, docx" });
+
+        if (file.Length > 10 * 1024 * 1024) // 10MB max
+            return BadRequest(new { success = false, message = "El archivo es muy grande. Máximo 10MB" });
+
+        try
+        {
+            var baseDir = _env.WebRootPath ?? _env.ContentRootPath;
+            var uploadsDir = Path.Combine(baseDir, "uploads", "entregas", temaId.ToString());
+            Directory.CreateDirectory(uploadsDir);
+
+            var uniqueFileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var rutaRelativa = $"/uploads/entregas/{temaId}/{uniqueFileName}";
+
+            return Ok(new
+            {
+                success = true,
+                url = rutaRelativa,
+                nombreOriginal = file.FileName
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading submission file");
+            return StatusCode(500, new { success = false, message = "Error al subir el archivo" });
+        }
+    }
 }

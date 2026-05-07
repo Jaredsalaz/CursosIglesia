@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR();
 
 // Register Services (Dependency Injection)
 builder.Services.AddMemoryCache();
@@ -29,7 +30,8 @@ builder.Services.AddScoped<IQuizService, QuizService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<GeminiService>();
 builder.Services.AddScoped<IDailyVerseService, DailyVerseService>();
-builder.Services.AddHttpClient<DailyVerseService>();
+builder.Services.AddScoped<IActivityService, ActivityService>();
+builder.Services.AddScoped<IForumService, ForumService>();
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -158,5 +160,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR Hubs
+app.MapHub<CursosIglesia.Hubs.ActivityHub>("/hubs/activity");
+app.MapHub<CursosIglesia.Hubs.ForumHub>("/hubs/forum");
 
 app.Run();
